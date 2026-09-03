@@ -4255,8 +4255,11 @@ function atmFrame(){
   const avg=G.ch.reduce((s,c)=>s+c.stress,0)/G.ch.length;
   G.atm+=(avg/100-G.atm)*0.055;
   const a=G.atm;
+  /* 예전엔 파티 평균 스트레스가 오를수록 화면 모서리가 점점 어두워졌는데,
+     누군가 붕괴하면 스트레스가 안 내려가 그 어두움이 전투 내내 안 풀리고
+     카드·버튼까지 가렸다. 그래서 스트레스와 무관한 고정값으로 둔다. */
   document.getElementById('vignette').style.background=
-    `radial-gradient(ellipse at center,transparent ${Math.max(15,45-a*30)}%,rgba(0,0,0,${0.32+a*0.6}) 100%)`;
+    'radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,0.32) 100%)';
   const bG=Math.round(110-a*82),bB=Math.round(170-a*142),bA=(0.33+a*0.22).toFixed(2);
   document.documentElement.style.setProperty('--border',`rgba(60,${bG},${bB},${bA})`);
   const acG=Math.max(20,Math.round(122-a*102)),acB=Math.max(28,Math.round(191-a*163));
