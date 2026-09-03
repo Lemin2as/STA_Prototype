@@ -545,7 +545,7 @@ body {
 
 /* 유닛 옆 세로 버프 줄 — 아군은 왼쪽, 적은 오른쪽 */
 .u-side {
-  position:absolute; top:50%; transform:translateY(-50%);
+  position:absolute; top:38%; transform:translateY(-50%);
   display:flex; flex-direction:column; gap:5px; z-index:30;
 }
 .ally-unit  .u-side { right:100%; margin-right:8px; align-items:flex-end; }
@@ -2536,7 +2536,7 @@ const REV_SPD=[0,.15,.10,.05,.01];
    (원근감을 주고 싶으면 뒤쪽 슬롯의 값을 1보다 작게 두면 된다)
    infoAbove: 앞 유닛에 가려지는 뒤쪽 슬롯은 정보를 머리 위로 올린다 */
 const ALLY_SLOTS=[
-  {x:29.5,y:71,depth:1.00},   // 헬레네 — 뒤 (가운데) · 키를 키운 만큼 내려 머리가 HP 패널에 가리지 않게 한다
+  {x:33.5,y:71,depth:1.00},   // 헬레네 — 뒤 (가운데) · 키를 키운 만큼 내려 머리가 HP 패널에 가리지 않게 한다
   {x:42.5,y:85,depth:1.00},   // 트리샤 — 중간 (오른쪽으로)
   {x:19.5,y:92,depth:1.00},   // 올가   — 앞 (왼쪽으로)
 ];
