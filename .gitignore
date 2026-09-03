@@ -1,0 +1,6 @@
+# 실제 테스트 빌드에 필요한 combat.html과 assets/만 저장소에 올린다.
+*
+!/.gitignore
+!/combat.html
+!/assets/
+!/assets/**
