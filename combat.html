@@ -994,6 +994,10 @@ body {
 
 #df-confirm { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.78); z-index:8400; }
 #df-confirm.show { display:flex; }
+/* 지도·전투 어디서든 메인으로 나가기 전에 한 번 더 확인 */
+/* 지도(8450)를 포함해 어떤 화면 위에서도 눌러야 하므로 그보다 높게 둔다 */
+#quit-confirm { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.78); z-index:8700; }
+#quit-confirm.show { display:flex; }
 .dfc-box {
   background:rgba(8,14,28,0.99); border:1px solid var(--border); border-radius:12px;
   padding:28px 40px; display:flex; flex-direction:column; align-items:center; gap:18px;
@@ -1627,7 +1631,8 @@ body {
   position:relative; z-index:2; display:flex; align-items:baseline; gap:14px;
   padding:18px 34px 0;
 }
-.ad-foot { position:relative; z-index:2; display:flex; justify-content:center; padding:0 0 22px; }
+.ad-foot { position:relative; z-index:2; display:flex; justify-content:center; gap:10px; padding:0 0 22px; }
+#as-back, #as-yard-shortcut { display:none; }
 
 /* 갑판 바닥 — 나중에 배경 그림이 생기면 이 자리에 깐다 */
 .ad-deck { position:relative; z-index:1; flex:1; margin:6px 0; }
@@ -1909,6 +1914,7 @@ body {
     <button class="dbg" id="dbg-sector" title="임시: 다음 공역으로 건너뛴다">공역 스킵</button>
     <button class="dbg" id="tb-guide" title="가이드">?</button>
     <button id="tune-btn" title="밸런스 조정">⚙</button>
+    <button class="ov-btn ghost" id="tb-quit">메인으로</button>
   </div>
 </div>
 
@@ -2001,6 +2007,17 @@ body {
   </div>
 </div>
 
+<!-- ── 지도·전투 중 메인으로 나가기 확인 ── -->
+<div id="quit-confirm">
+  <div class="dfc-box">
+    <div class="dfc-msg">진행을 포기하시겠습니까?<br>지금까지 진행한 내역은 모두 사라집니다.</div>
+    <div class="df-btns">
+      <button class="ov-btn" id="qc-yes">예</button>
+      <button class="ov-btn ghost" id="qc-no">아니오</button>
+    </div>
+  </div>
+</div>
+
 <!-- 더미로 날아가는 카드 잔상이 담기는 곳 -->
 <div id="fly-layer"></div>
 <!-- 치명타가 터진 순간 화면 한가운데에 뜬다 -->
@@ -2085,6 +2102,7 @@ body {
       <button class="ov-btn ghost" id="mp-inv">보유 현황</button>
       <button class="ov-btn ghost" id="mp-guide">가이드</button>
       <button class="dbg" id="dbg-sector2" title="임시: 다음 공역으로 건너뛴다">공역 스킵</button>
+      <button class="ov-btn ghost" id="mp-quit">메인으로</button>
     </div>
   </div>
   <div class="mp-party" id="mp-party"></div>
@@ -2204,13 +2222,17 @@ body {
     <div class="ad-head">
       <div class="as-title" id="as-title">비 공 정</div>
       <div class="as-res" id="as-res"></div>
+      <button class="ov-btn ghost" id="as-yard-shortcut">비공정 강화</button>
     </div>
     <div class="ad-deck" id="ad-deck">
       <div class="ad-hull"></div>
       <div class="ad-rail"></div>
       <div class="ad-spots" id="ad-spots"></div>
     </div>
-    <div class="ad-foot"><button class="ov-btn primary" id="as-go">출항</button></div>
+    <div class="ad-foot">
+      <button class="ov-btn ghost" id="as-back">뒤로가기</button>
+      <button class="ov-btn primary" id="as-go">출항</button>
+    </div>
   </div>
   <!-- 고른 시설의 상세 -->
   <div class="as-box" id="ad-panel">
@@ -2299,8 +2321,8 @@ body {
 
 <script>
 /* ============================================================
-   SFX — 효과음 파일 없이 Web Audio API로 그때그때 합성한다.
-   프로토타입 단계에서 BGM/실제 음원 없이도 조작감을 확인할 수 있도록 넣은 임시 사운드.
+   SFX — 공격·버프음은 assets/Sound/ 의 실제 음원을 재생하고,
+   그 외(버튼 클릭·카드 사용·방어막 파괴 등)는 파일이 없어 Web Audio로 합성한다.
    ============================================================ */
 const SFX=(()=>{
   let ctx=null;
@@ -2351,26 +2373,38 @@ const SFX=(()=>{
     });
   }
   const safe=fn=>{ try{fn();}catch(e){} };
+  /* 실제 음원 — 캐릭터별 공격음 · 버프음. 짧게 겹쳐 재생될 수 있어(다단히트 카드 등)
+     매번 새 Audio를 하나 만들어 튼다(cloneNode로 원본 로드는 한 번만). */
+  const FILES={
+    atk_helene:'assets/Sound/Helene_Attack_Sound_01.mp3',
+    atk_tricia:'assets/Sound/Trisha_Attack_Sound_01.mp3',
+    atk_olga:  'assets/Sound/Olga_Attack_Sound_01.mp3',
+    atk_monster:'assets/Sound/Monster_Attack_Sound_01.mp3',
+    buff:        'assets/Sound/Buff_Sound_01.mp3',
+    buff_monster:'assets/Sound/Monster_Buff_Sound_01.mp3',
+  };
+  const FILE_CACHE={};
+  function playFile(key,vol,rate){
+    safe(()=>{
+      const src=FILES[key]; if(!src)return;
+      let base=FILE_CACHE[key];
+      if(!base){ base=new Audio(src); base.preload='auto'; FILE_CACHE[key]=base; }
+      const a=base.cloneNode(true);
+      a.volume=vol!=null?vol:0.8;
+      if(rate)a.playbackRate=rate;
+      a.play().catch(()=>{});
+    });
+  }
   return {
     click(){ safe(()=>tone(740,0.05,'square',0.05)); },
     cardPlay(){ safe(()=>tone(520,0.09,'triangle',0.09,760)); },
-    /* kind: 'sword'(헬레네) · 'lightning'(올가) · 'blunt'(트리샤 · 모든 몬스터) */
-    hit(crit,kind){ safe(()=>{
-      if(kind==='sword'){
-        noise(0.035,0.16,7500);                          // 칼이 공기를 가르는 스와시
-        setTimeout(()=>clang(crit?0.17:0.12),16);         // 부딪히는 쨍 소리
-        if(crit)setTimeout(()=>clang(0.10),70);
-      }else if(kind==='lightning'){
-        tone(2600,0.06,'sawtooth',0.13,120); noise(0.06,0.16,7000);
-        setTimeout(()=>noise(0.03,0.10,8500),30);         // 지지직 잔향
-        if(crit)setTimeout(()=>{tone(3200,0.06,'square',0.08,260);noise(0.05,0.13,5400);},55);
-      }else if(kind==='blunt'){
-        tone(95,0.17,'sine',0.22,42); noise(0.09,crit?0.22:0.15,650);
-        if(crit)tone(60,0.15,'sine',0.10,30);
-      }else{
-        noise(crit?0.16:0.09, crit?0.32:0.20, crit?3200:1400); if(crit)tone(180,0.12,'sawtooth',0.11,90);
-      }
-    }); },
+    /* kind: 'helene' · 'olga' · 'tricia' · 'monster' */
+    hit(crit,kind){
+      const key='atk_'+(kind==='helene'||kind==='olga'||kind==='tricia'?kind:'monster');
+      playFile(key, crit?1.0:0.85, crit?1.06:1.0);
+    },
+    buff(){ playFile('buff',0.85); },
+    monsterBuff(){ playFile('buff_monster',0.85); },
     shieldBreak(){ safe(()=>{ noise(0.12,0.22,4000); tone(900,0.08,'square',0.05,300); }); },
     turnEnd(){ safe(()=>tone(440,0.08,'sine',0.07,330)); },
     potion(){ safe(()=>{ tone(660,0.06,'sine',0.09,990); setTimeout(()=>tone(990,0.08,'sine',0.06,1320),40); }); },
@@ -3047,6 +3081,7 @@ function execEnemy(e){
       dd(G,t,eDmg(e),e,false,rollCrit(critOf(e)));
     }else{
       // 스트레스 기술 — 피해와 별개로 스트레스를 누적시킨다
+      SFX.monsterBuff();
       log(G,`${e.name}의 「영혼 잠식」!`,'warning');skillName('영혼 잠식',false);
       alive.forEach(c=>{
         dd(G,c,Math.floor(eDmg(e)*0.6),e,false,false);
@@ -3055,6 +3090,7 @@ function execEnemy(e){
     }
   }else if(e.pat==='guard'){
     if(e.aiN%2===1){
+      SFX.monsterBuff();
       log(G,`${e.name}이(가) 껍질을 굳힙니다.`,'warning');skillName('껍질 굳히기',false);
       G.en.filter(x=>x.hp>0).forEach(x=>gb(G,x,x.id===e.id?10:6));
     }else{
@@ -3279,7 +3315,7 @@ function playCard(card,target){
     G.playing=false;
     skillName(card.name,true);
     fxHitsBefore=fxHits;
-    if(card.type!=='attack')setPose(caster,'buff',POSE_MS.buff);
+    if(card.type!=='attack'){setPose(caster,'buff',POSE_MS.buff);SFX.buff();}
     card.fx(G,caster,target);
     // 타격 연출이 하나도 없었다면(방어·버프·회복) 시전자 쪽으로 카메라를 붙인다
     if(TUNE.fx&&fxHits===fxHitsBefore){
@@ -3838,9 +3874,8 @@ function shakeFx(power){
 let fxAtk=null, fxHits=0;
 /* 공격자별 타격음 — 헬레네는 칼, 올가는 번개, 트리샤와 몬스터는 둔기 */
 function atkSfxKind(u){
-  if(u&&u.id==='helene')return 'sword';
-  if(u&&u.id==='olga')return 'lightning';
-  return 'blunt';       // 트리샤 + 모든 몬스터
+  if(u&&(u.id==='helene'||u.id==='olga'||u.id==='tricia'))return u.id;
+  return 'monster';
 }
 function hitFx(atk,target,text,type,crit,delay,shown){
   if(!TUNE.fx){SFX.hit(crit,atkSfxKind(atk));spF(target,text,type);flashEl(target,'damage');revealHp(target);return;}
@@ -5486,17 +5521,33 @@ const FAC_SPOT={
   arcane :{x:64,y:75},
   hangar :{x:82,y:57},
 };
-let AS_MODE='yard', AS_TAB=null;
+let AS_MODE='yard', AS_TAB=null, AS_RETURN=null;   // AS_RETURN: 출항 준비 중 강화로 잠깐 들어왔으면 'depart'
 function openAirship(mode){
   AS_MODE=mode||'yard';
   AS_TAB=null;                       // 늘 갑판에서 시작한다
+  AS_RETURN=null;
   document.getElementById('airship').classList.add('show');
   renderAirship();
 }
+/* 출항 준비 중 「비공정 강화」로 잠깐 건너간다 — 런은 이미 시작 전이라
+   메인으로 완전히 나가는 게 아니라, 강화를 마치면 다시 출항 준비로 돌아온다 */
+function jumpToYardFromDepart(){
+  AS_RETURN='depart';
+  AS_MODE='yard'; AS_TAB=null;
+  renderAirship();
+}
 function closeAirship(){
+  if(AS_MODE==='yard'&&AS_RETURN==='depart'){        // 강화 → 출항 준비로 복귀
+    AS_RETURN=null; AS_MODE='depart'; AS_TAB=null; renderAirship(); return;
+  }
   document.getElementById('airship').classList.remove('show');
   if(AS_MODE==='depart')showEcoRoulette(showMap);   // 출발 직전에 생태계를 뽑는다
   else showMain();
+}
+/* 출항 준비를 취소하고 메인으로 — 아직 공역에 들어서기 전이라 그냥 나가면 된다 */
+function backFromDepart(){
+  document.getElementById('airship').classList.remove('show');
+  showMain();
 }
 /* 자원 한 줄 — 모드에 따라 보는 지갑이 다르다 */
 function asResHTML(){
@@ -5517,7 +5568,9 @@ function renderAirship(){
   box.classList.toggle('deck',!AS_TAB);          // 시설을 고르기 전에는 갑판
 
   document.getElementById('as-title').textContent=depart?'출 항 준 비':'비 공 정 · 갑 판';
-  document.getElementById('as-go').textContent=depart?'출항':'닫기';
+  document.getElementById('as-go').textContent=depart?'출항':(AS_RETURN==='depart'?'출항 준비로':'닫기');
+  document.getElementById('as-yard-shortcut').style.display=depart?'inline-block':'none';
+  document.getElementById('as-back').style.display=depart?'inline-block':'none';
 
   const res=document.getElementById('as-res');
   res.innerHTML=asResHTML();
@@ -5641,7 +5694,7 @@ let tutQueue=null, tutIdx=0, tutDoneKey=null;
 /* 부팅 시 더미 전투가 항상 깔려 있어, 실제로 그 화면이 보일 때만 튜토리얼을 띄운다 */
 function gameplayVisible(){
   const blockers=['main-screen','map-screen','node-panel','shop','airship','achieve','inv','guide',
-    'eco-roll','descend','sector-clear','evac','reward','defeat','df-confirm'];
+    'eco-roll','descend','sector-clear','evac','reward','defeat','df-confirm','quit-confirm'];
   return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
 }
 /* 출항 준비 화면(depart 모드로 열린 갑판)이 다른 창에 가리지 않고 실제로 보일 때만 */
@@ -5660,7 +5713,7 @@ function departVisible(){
 function mapVisible(){
   if(!document.getElementById('map-screen').classList.contains('show'))return false;
   const blockers=['node-panel','shop','airship','achieve','inv','guide','eco-roll',
-    'sector-clear','evac','reward','defeat','df-confirm','descend'];
+    'sector-clear','evac','reward','defeat','df-confirm','descend','quit-confirm'];
   return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
 }
 function runTutorial(key,steps){
@@ -5826,6 +5879,10 @@ const TUT_DEPART=[
    text:'시설 아이콘을 눌러 들어가면<br>그 시설에서 무엇을 할 수 있는지 보입니다.'},
   {sel:'#as-res', title:'보유 자원',
    text:'여기서는 이번 런에서 모은 금화 · 부산물 · 마력석을 씁니다.<br>제작에 쓴 만큼 비공정에는 덜 남습니다.'},
+  {sel:'#as-yard-shortcut', title:'비공정 강화',
+   text:'출항 전에 비공정 강화로 잠깐 건너가 시설을 올릴 수 있습니다.<br>강화를 마치면 다시 이 화면으로 돌아옵니다.'},
+  {sel:'#as-back', title:'뒤로가기',
+   text:'아직 공역에 들어서기 전입니다.<br>눌러서 메인 화면으로 돌아갈 수 있습니다.'},
   {sel:'#as-go', title:'출항',
    text:'정비가 끝났으면 눌러서 출발하세요.<br>이번 공역의 생태계가 그때 정해집니다.'},
 ];
@@ -6477,6 +6534,16 @@ document.getElementById('df-retry').addEventListener('click',()=>document.getEle
 document.getElementById('dfc-no').addEventListener('click',()=>document.getElementById('df-confirm').classList.remove('show'));
 document.getElementById('dfc-yes').addEventListener('click',startRun);
 document.getElementById('df-main').addEventListener('click',showMain);
+/* 지도·전투 중 메인으로 나가기 — 한 번 더 확인한 뒤, 패배 때처럼 자재만 비공정으로 옮기고 런은 버린다 */
+function openQuitConfirm(){ document.getElementById('quit-confirm').classList.add('show'); }
+document.getElementById('tb-quit').addEventListener('click',openQuitConfirm);
+document.getElementById('mp-quit').addEventListener('click',openQuitConfirm);
+document.getElementById('qc-no').addEventListener('click',()=>document.getElementById('quit-confirm').classList.remove('show'));
+document.getElementById('qc-yes').addEventListener('click',()=>{
+  document.getElementById('quit-confirm').classList.remove('show');
+  settleRun(false);
+  showMain();
+});
 document.getElementById('ms-start').addEventListener('click',startRun);
 /* 메인 화면 사운드바 — 값은 즉시 저장되고, 이후 지도·전투 BGM에도 그대로 적용된다 */
 {
@@ -6568,6 +6635,8 @@ function skipSector(){
   sectorClear();
 }
 document.getElementById('as-go').addEventListener('click',closeAirship);
+document.getElementById('as-yard-shortcut').addEventListener('click',jumpToYardFromDepart);
+document.getElementById('as-back').addEventListener('click',backFromDepart);
 document.getElementById('ad-back').addEventListener('click',()=>{AS_TAB=null;renderAirship();});
 document.getElementById('sh-exit').addEventListener('click',closeShop);
 document.getElementById('sh-back').addEventListener('click',()=>{shopView('main');renderShop();});
