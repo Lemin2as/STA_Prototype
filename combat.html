@@ -2293,6 +2293,60 @@ body {
 
 <script>
 /* ============================================================
+   SFX — 효과음 파일 없이 Web Audio API로 그때그때 합성한다.
+   프로토타입 단계에서 BGM/실제 음원 없이도 조작감을 확인할 수 있도록 넣은 임시 사운드.
+   ============================================================ */
+const SFX=(()=>{
+  let ctx=null;
+  function ac(){
+    if(!ctx){ const C=window.AudioContext||window.webkitAudioContext; if(!C)return null; ctx=new C(); }
+    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+    return ctx;
+  }
+  function tone(freq,dur,type,vol,glideTo){
+    const c=ac(); if(!c)return;
+    const t0=c.currentTime;
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t0);
+    if(glideTo)o.frequency.exponentialRampToValueAtTime(Math.max(20,glideTo),t0+dur);
+    g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(vol,t0+Math.min(0.012,dur*0.3));
+    g.gain.linearRampToValueAtTime(0,t0+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0+dur+0.03);
+  }
+  function noise(dur,vol,filterFreq){
+    const c=ac(); if(!c)return;
+    const t0=c.currentTime;
+    const n=Math.max(1,Math.floor(c.sampleRate*dur));
+    const buf=c.createBuffer(1,n,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+    const src=c.createBufferSource(); src.buffer=buf;
+    const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=filterFreq;
+    const g=c.createGain(); g.gain.setValueAtTime(vol,t0); g.gain.linearRampToValueAtTime(0,t0+dur);
+    src.connect(f); f.connect(g); g.connect(c.destination);
+    src.start(t0);
+  }
+  const safe=fn=>{ try{fn();}catch(e){} };
+  return {
+    click(){ safe(()=>tone(740,0.05,'square',0.05)); },
+    cardPlay(){ safe(()=>tone(520,0.09,'triangle',0.09,760)); },
+    hit(crit){ safe(()=>{ noise(crit?0.16:0.09, crit?0.32:0.20, crit?3200:1400); if(crit)tone(180,0.12,'sawtooth',0.11,90); }); },
+    shieldBreak(){ safe(()=>{ noise(0.12,0.22,4000); tone(900,0.08,'square',0.05,300); }); },
+    turnEnd(){ safe(()=>tone(440,0.08,'sine',0.07,330)); },
+    potion(){ safe(()=>{ tone(660,0.06,'sine',0.09,990); setTimeout(()=>tone(990,0.08,'sine',0.06,1320),40); }); },
+    node(){ safe(()=>tone(500,0.05,'sine',0.06,700)); },
+    victory(){ safe(()=>[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'triangle',0.10),i*90))); },
+    defeat(){ safe(()=>tone(220,0.5,'sawtooth',0.12,90)); },
+  };
+})();
+document.addEventListener('click',(e)=>{
+  const btn=e.target.closest && e.target.closest('.gbtn,.ov-btn');
+  if(btn)SFX.click();
+},true);
+
+/* ============================================================
    CONSTANTS
    ============================================================ */
 const S_MAX=100;
@@ -2853,6 +2907,7 @@ function endTurn(){
   if(G.phase!=='player')return;
   const cur=G.q[G.qi];if(!cur||!cur.ally)return;
   if(G.playing&&cur.unit.hp>0)return;        // 연출 중에는 막지만, 쓰러진 경우는 넘겨야 한다
+  SFX.turnEnd();
   G.playing=false;
   if(TUNE.fx)flyToDiscard();                       // 남은 카드가 버린 더미로 들어간다
   cur.unit.disc.push(...cur.unit.hand);cur.unit.hand=[];
@@ -3114,6 +3169,7 @@ function playCard(card,target){
   if(G.energy<cost){log(G,'에너지 부족!','warning');shakeOrb();return;}
   if(rcost>0&&(!caster.res||caster.res.cur<rcost)){log(G,`${caster.res?caster.res.name:'전용 자원'} 부족!`,'warning');act(caster,'자원 부족');return;}
   if(G.playing)return;                       // 카드 연출 중에는 다음 카드를 받지 않는다
+  SFX.cardPlay();
   fxReset();
   G.energy-=cost;
   if(rcost>0)caster.res.cur-=rcost;
@@ -3232,6 +3288,7 @@ function showEvac(units,then){
 }
 
 function showReward(){
+  SFX.victory();
   savePartyState();
   pendingReward=rollRewards();
   const r=pendingReward;
@@ -3323,6 +3380,7 @@ function settleText(got){
 }
 
 function showDefeat(){
+  SFX.defeat();
   savePartyState();
   const got=settleRun(false);
   document.getElementById('df-sub').innerHTML=
@@ -3705,6 +3763,7 @@ function hitFx(atk,target,text,type,crit,delay,shown){
   setTimeout(()=>{
     if(shown!==undefined)target.hpReveal=shown;
     hitStop();
+    SFX.hit(crit);
     impactFx(target,crit);
     recoilFx(target,dir);
     if(target.hp>0)setPose(target,'hurt',POSE_MS.hurt);
@@ -4180,6 +4239,7 @@ function usePotion(i){
       :G.ch.filter(c=>c.hp>0).reduce((m,c)=>c.hp/c.maxHp<m.hp/m.maxHp?c:m);
     if(!t)return;
   }
+  SFX.potion();
   p.use(G,t);
   if(t)act(t,p.name);
   RUN.potions.splice(i,1);
@@ -4223,6 +4283,7 @@ const BUFF_INFO={
 };
 /* 방어막이 깨지는 순간을 잠깐 붙잡아 부서지는 연출을 보여준다 */
 function breakShield(u){
+  SFX.shieldBreak();
   u.breakUntil=Date.now()+520;
   setTimeout(()=>{if(G)render();},540);
 }
@@ -5210,6 +5271,7 @@ function renderMap(){
 
 /* ── 노드 진입 ── */
 function enterNode(d,i){
+  SFX.node();
   const M=RUN.map, nd=M.cols[d][i];
   M.cur={d,i}; M.path.push({d,i});
   // 이동 스트레스
