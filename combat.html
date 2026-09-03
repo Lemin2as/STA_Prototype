@@ -2379,6 +2379,48 @@ document.addEventListener('click',(e)=>{
 },true);
 
 /* ============================================================
+   BGM — 화면(메인/지도/전투)에 맞춰 배경음악을 틀고, 바뀔 때는 서서히 섞는다.
+   브라우저는 사용자 입력 없이 오디오 재생을 막으므로, 첫 클릭 전에는
+   재생을 미뤄두고("pending") 첫 클릭 순간 바로 이어서 튼다.
+   ============================================================ */
+const BGM=(()=>{
+  const TRACKS={
+    title: 'assets/bgm/Title_Theme_01.mp3',
+    map:   'assets/bgm/Map_Node_Theme_01.mp3',
+    battle:'assets/bgm/Battle_Theme_01.mp3',
+  };
+  const VOL=0.32;
+  const el=new Audio(); el.loop=true; el.volume=0; el.preload='auto';
+  let cur=null, unlocked=false, pending=null, fadeTimer=null;
+  function fadeTo(target,ms,done){
+    clearInterval(fadeTimer);
+    const start=el.volume, steps=Math.max(1,Math.round(ms/40)), dv=(target-start)/steps;
+    let i=0;
+    fadeTimer=setInterval(()=>{
+      i++; el.volume=Math.max(0,Math.min(1,start+dv*i));
+      if(i>=steps){ clearInterval(fadeTimer); el.volume=target; done&&done(); }
+    },40);
+  }
+  function reallyPlay(key){
+    const doSwitch=()=>{ el.src=TRACKS[key]; el.currentTime=0; el.play().catch(()=>{}); fadeTo(VOL,650); };
+    if(el.volume>0.01)fadeTo(0,300,doSwitch); else doSwitch();
+  }
+  return {
+    play(key){
+      if(!TRACKS[key]||cur===key)return;
+      cur=key;
+      if(!unlocked){ pending=key; return; }
+      reallyPlay(key);
+    },
+    unlock(){
+      if(unlocked)return; unlocked=true;
+      if(pending!==null){ reallyPlay(pending); pending=null; }
+    },
+  };
+})();
+document.addEventListener('click',()=>BGM.unlock(),{once:true,capture:true});
+
+/* ============================================================
    CONSTANTS
    ============================================================ */
 const S_MAX=100;
@@ -2780,6 +2822,7 @@ function freshEn(){return[
    ============================================================ */
 let G;
 function newGame(){
+  BGM.play('battle');
   {const el=document.getElementById('act-name');if(el)el.className='';}
   G={turn:1,grade:TUNE.grade,ch:freshCh(),en:freshEn(),energy:0,q:[],qi:0,pick:null,phase:'init',logs:[],atm:0,
      arts:RUN.arts.map(id=>ARTS[id]).filter(Boolean)};
@@ -3423,6 +3466,7 @@ function showDefeat(){
   document.getElementById('defeat').classList.add('show');
 }
 function showMain(){
+  BGM.play('title');
   document.getElementById('guide').classList.remove('show');
   document.getElementById('inv').classList.remove('show');
   clearTimeout(ecoRollTimer);
@@ -5172,6 +5216,7 @@ function playDescent(from,to,done){
 
 /* ── 지도 화면 ── */
 function showMap(){
+  BGM.play('map');
   document.getElementById('descend').classList.remove('show');
   document.getElementById('sector-clear').classList.remove('show');
   document.getElementById('guide').classList.remove('show');
