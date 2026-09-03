@@ -1386,6 +1386,11 @@ body {
 .mp-node.elite { border-color:rgba(230,180,80,0.7); }
 .mp-node.boss  { border-color:rgba(230,90,90,0.8); width:58px; height:58px; font-size:26px; }
 .mp-foot { padding:6px 22px 14px; font-size:12px; color:#9fb4cc; text-align:center; }
+/* 화면 중앙 하단 — 눈에 잘 띄도록 ghost 대신 진한 스타일, 크게 */
+#mp-quit {
+  position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+  padding:12px 40px; font-size:14px;
+}
 
 /* ── 노드 결과 패널 ── */
 #node-panel { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
@@ -2102,7 +2107,6 @@ body {
       <button class="ov-btn ghost" id="mp-inv">보유 현황</button>
       <button class="ov-btn ghost" id="mp-guide">가이드</button>
       <button class="dbg" id="dbg-sector2" title="임시: 다음 공역으로 건너뛴다">공역 스킵</button>
-      <button class="ov-btn ghost" id="mp-quit">메인으로</button>
     </div>
   </div>
   <div class="mp-party" id="mp-party"></div>
@@ -2111,6 +2115,7 @@ body {
     <div id="mp-nodes"></div>
   </div>
   <div class="mp-foot" id="mp-foot">이동할 곳을 고르세요 · 노드를 지날 때마다 스트레스가 쌓입니다</div>
+  <button class="ov-btn" id="mp-quit">메인으로</button>
 </div>
 
 <!-- ── 노드 결과 패널 ── -->
@@ -2222,7 +2227,7 @@ body {
     <div class="ad-head">
       <div class="as-title" id="as-title">비 공 정</div>
       <div class="as-res" id="as-res"></div>
-      <button class="ov-btn ghost" id="as-yard-shortcut">비공정 강화</button>
+      <button class="ov-btn" id="as-yard-shortcut">비공정 강화</button>
     </div>
     <div class="ad-deck" id="ad-deck">
       <div class="ad-hull"></div>
@@ -2230,7 +2235,7 @@ body {
       <div class="ad-spots" id="ad-spots"></div>
     </div>
     <div class="ad-foot">
-      <button class="ov-btn ghost" id="as-back">뒤로가기</button>
+      <button class="ov-btn" id="as-back">뒤로가기</button>
       <button class="ov-btn primary" id="as-go">출항</button>
     </div>
   </div>
@@ -2331,7 +2336,9 @@ const SFX=(()=>{
     if(ctx.state==='suspended')ctx.resume().catch(()=>{});
     return ctx;
   }
+  const SFX_VOL_SCALE=0.6;         // 이펙트음 전체 볼륨을 40% 낮춘다 (BGM과는 별개)
   function tone(freq,dur,type,vol,glideTo){
+    vol*=SFX_VOL_SCALE;
     const c=ac(); if(!c)return;
     const t0=c.currentTime;
     const o=c.createOscillator(), g=c.createGain();
@@ -2344,6 +2351,7 @@ const SFX=(()=>{
     o.start(t0); o.stop(t0+dur+0.03);
   }
   function noise(dur,vol,filterFreq){
+    vol*=SFX_VOL_SCALE;
     const c=ac(); if(!c)return;
     const t0=c.currentTime;
     const n=Math.max(1,Math.floor(c.sampleRate*dur));
@@ -2359,6 +2367,7 @@ const SFX=(()=>{
   /* 쇠끼리 부딪히는 "쨍" — 정수 배수가 아닌(비화성) 주파수를 여러 개 겹쳐야
      맑은 전자음(뿅) 대신 쇳소리로 들린다. 스윕 톤 하나로는 절대 칼소리가 안 난다. */
   function clang(vol){
+    vol*=SFX_VOL_SCALE;
     const c=ac(); if(!c)return;
     const t0=c.currentTime;
     [2600,3900,5300,6800].forEach((f,i)=>{
@@ -2390,7 +2399,7 @@ const SFX=(()=>{
       let base=FILE_CACHE[key];
       if(!base){ base=new Audio(src); base.preload='auto'; FILE_CACHE[key]=base; }
       const a=base.cloneNode(true);
-      a.volume=vol!=null?vol:0.8;
+      a.volume=Math.max(0,Math.min(1,(vol!=null?vol:0.8)*SFX_VOL_SCALE));
       if(rate)a.playbackRate=rate;
       a.play().catch(()=>{});
     });
@@ -5862,6 +5871,8 @@ const TUT_BATTLE=[
    text:'쓸 카드를 다 썼으면 눌러서 다음 차례로 넘깁니다.'},
   {sel:'#tb-right', title:'프로토타입 도구',
    text:'해당 기능들은 프로토타입에서 제공되는 기능들입니다.<br>캐릭터의 붕괴와 사망을 테스트하거나<br>승리와 패배 스킵을 통해 UI의 작동을 테스트할 수 있습니다.'},
+  {sel:'#tb-quit', title:'메인으로',
+   text:'언제든 눌러서 메인 화면으로 나갈 수 있습니다.<br>지금까지 진행한 내역은 모두 사라지니, 누르기 전에 한 번 더 확인합니다.'},
 ];
 const TUT_MAP=[
   {sel:'.mp-node.open', title:'다음 노드',
@@ -5872,6 +5883,8 @@ const TUT_MAP=[
    text:'보유한 아티팩트 · 포션 · 캐릭터별 덱을 여기서 확인할 수 있습니다.'},
   {sel:'#dbg-sector2', title:'공역 스킵',
    text:'프로토타입에서만 제공되는 기능입니다.<br>클릭 시 다음 공역으로 즉시 진입합니다.'},
+  {sel:'#mp-quit', title:'메인으로',
+   text:'언제든 눌러서 메인 화면으로 나갈 수 있습니다.<br>지금까지 진행한 내역은 모두 사라지니, 누르기 전에 한 번 더 확인합니다.'},
 ];
 /* 공역에 들어서기 직전, 비공정 갑판에서 물자를 정비할 때 뜬다 */
 const TUT_DEPART=[
