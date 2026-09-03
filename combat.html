@@ -2332,7 +2332,21 @@ const SFX=(()=>{
   return {
     click(){ safe(()=>tone(740,0.05,'square',0.05)); },
     cardPlay(){ safe(()=>tone(520,0.09,'triangle',0.09,760)); },
-    hit(crit){ safe(()=>{ noise(crit?0.16:0.09, crit?0.32:0.20, crit?3200:1400); if(crit)tone(180,0.12,'sawtooth',0.11,90); }); },
+    /* kind: 'sword'(헬레네) · 'lightning'(올가) · 'blunt'(트리샤 · 모든 몬스터) */
+    hit(crit,kind){ safe(()=>{
+      if(kind==='sword'){
+        noise(0.05,0.15,5200); tone(1900,0.09,'triangle',0.11,950);
+        if(crit)setTimeout(()=>tone(2700,0.08,'sine',0.08,1400),25);
+      }else if(kind==='lightning'){
+        tone(2400,0.08,'sawtooth',0.14,140); noise(0.07,0.17,6200);
+        if(crit)setTimeout(()=>{tone(3200,0.06,'square',0.08,260);noise(0.05,0.13,5400);},35);
+      }else if(kind==='blunt'){
+        tone(95,0.17,'sine',0.22,42); noise(0.09,crit?0.22:0.15,650);
+        if(crit)tone(60,0.15,'sine',0.10,30);
+      }else{
+        noise(crit?0.16:0.09, crit?0.32:0.20, crit?3200:1400); if(crit)tone(180,0.12,'sawtooth',0.11,90);
+      }
+    }); },
     shieldBreak(){ safe(()=>{ noise(0.12,0.22,4000); tone(900,0.08,'square',0.05,300); }); },
     turnEnd(){ safe(()=>tone(440,0.08,'sine',0.07,330)); },
     potion(){ safe(()=>{ tone(660,0.06,'sine',0.09,990); setTimeout(()=>tone(990,0.08,'sine',0.06,1320),40); }); },
@@ -3744,8 +3758,14 @@ function shakeFx(power){
    shown = 이 타격이 끝난 시점의 체력. 체력바는 타격마다 이 값까지만 깎인다. */
 /* 흐름: (첫 타격) 카메라 확대 + 공격자가 대상 앞까지 이동 → 타격 → … → 마지막에 복귀 */
 let fxAtk=null, fxHits=0;
+/* 공격자별 타격음 — 헬레네는 칼, 올가는 번개, 트리샤와 몬스터는 둔기 */
+function atkSfxKind(u){
+  if(u&&u.id==='helene')return 'sword';
+  if(u&&u.id==='olga')return 'lightning';
+  return 'blunt';       // 트리샤 + 모든 몬스터
+}
 function hitFx(atk,target,text,type,crit,delay,shown){
-  if(!TUNE.fx){spF(target,text,type);flashEl(target,'damage');revealHp(target);return;}
+  if(!TUNE.fx){SFX.hit(crit,atkSfxKind(atk));spF(target,text,type);flashEl(target,'damage');revealHp(target);return;}
   const dir=atk?dirTo(atk,target):1;
   const first=(fxHits===0);
   fxHits++;
@@ -3763,7 +3783,7 @@ function hitFx(atk,target,text,type,crit,delay,shown){
   setTimeout(()=>{
     if(shown!==undefined)target.hpReveal=shown;
     hitStop();
-    SFX.hit(crit);
+    SFX.hit(crit,atkSfxKind(atk));
     impactFx(target,crit);
     recoilFx(target,dir);
     if(target.hp>0)setPose(target,'hurt',POSE_MS.hurt);
