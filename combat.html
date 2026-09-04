@@ -2476,7 +2476,9 @@ const BGM=(()=>{
     setVolume(v){
       VOL=Math.max(0,Math.min(1,v));
       try{ localStorage.setItem('sta.bgmVol',VOL); }catch(e){}
-      if(el.volume>0.01){ clearInterval(fadeTimer); el.volume=VOL; }   // 재생 중이면 즉시 반영
+      // el.volume이 0(직전에 슬라이더를 내려서)이어도 다시 올릴 때 반영돼야 한다 —
+      // 예전엔 "재생 중일 때만" 조건으로 막아서, 0으로 내렸다가 올리면 무음에 갇혔다.
+      if(unlocked&&cur){ clearInterval(fadeTimer); el.volume=VOL; }
     },
     getVolume(){ return VOL; },
   };
@@ -4761,7 +4763,9 @@ function aimShow(on){document.getElementById('aim').classList.toggle('show',!!on
 function aimDraw(sx,sy,ex,ey,mode){
   const svg=document.getElementById('aim');
   const sr=document.getElementById('stage').getBoundingClientRect();
-  const x1=sx-sr.left, y1=sy-sr.top, x2=ex-sr.left, y2=ey-sr.top;
+  // #stage는 transform:scale로 축소·확대되어 있어, 화면 좌표를 그대로 빼면
+  // 창 크기가 1600x900이 아닐 때 화살표 끝이 커서에서 어긋난다 — unscale로 보정한다.
+  const x1=unscale(sx-sr.left), y1=unscale(sy-sr.top), x2=unscale(ex-sr.left), y2=unscale(ey-sr.top);
   // 위로 휘는 2차 베지어
   const dist=Math.hypot(x2-x1,y2-y1);
   const cx=(x1+x2)/2, cy=Math.min(y1,y2)-Math.max(70,dist*0.28);
@@ -5876,8 +5880,13 @@ const TUT_BATTLE=[
    text:'하늘색 표식과 발밑 고리로 표시됩니다.<br>현재 손패는 이 캐릭터의 손패만이 노출됩니다.'},
   {sel:'#end-turn-btn', title:'턴 종료',
    text:'쓸 카드를 다 썼으면 눌러서 다음 차례로 넘깁니다.'},
+  {rectFn:()=>{
+     const chip=document.querySelector('.u-side .bchip');
+     return chip?tutRect(chip.closest('.u-side')):null;
+   }, title:'상태이상 · 디버프',
+   text:'캐릭터 옆에 아이콘으로 표시됩니다.<br>아이콘에 커서를 올리면 이름과 남은 턴이 보입니다.'},
   {sel:'#tb-right', title:'프로토타입 도구',
-   text:'해당 기능들은 프로토타입에서 제공되는 기능들입니다.<br>캐릭터의 붕괴와 사망을 테스트하거나<br>승리와 패배 스킵을 통해 UI의 작동을 테스트할 수 있습니다.'},
+   text:'해당 기능들은 프로토타입에서 제공되는 기능들입니다.<br>캐릭터의 붕괴와 사망을 테스트하거나<br>승리와 패배 스킵을 통해 UI의 작동을 테스트할 수 있습니다.<br>붕괴 · 사망은 먼저 아군 캐릭터를 클릭해 선택한 뒤 눌러야 그 캐릭터에게 적용됩니다.'},
   {sel:'#tb-quit', title:'메인 화면으로',
    text:'언제든 눌러서 메인 화면으로 나갈 수 있습니다.<br>지금까지 진행한 내역은 모두 사라지니, 누르기 전에 한 번 더 확인합니다.'},
 ];
