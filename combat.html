@@ -1420,10 +1420,14 @@ body {
 .ms-vol input[type=range] {
   width:110px; accent-color:#8fc4ff; cursor:pointer;
 }
-.ms-logo { margin-top:6vh; text-align:center; }
-.ms-logo .l1 { font-size:58px; font-weight:700; letter-spacing:16px; color:#eaf4ff; text-shadow:0 0 34px rgba(120,190,255,0.5), 0 6px 18px rgba(0,0,0,0.9); }
-.ms-logo .l2 { font-size:14px; letter-spacing:9px; color:#9fc4e6; margin-top:6px; }
-.ms-logo .l3 { font-size:12px; color:#7f96ad; margin-top:10px; }
+.ms-logo { margin-top:4vh; text-align:center; }
+.ms-logo-img {
+  display:block; width:min(620px,74vw); margin:0 auto; user-select:none; pointer-events:none;
+  -webkit-mask-image:radial-gradient(ellipse 58% 60% at 50% 48%, #000 52%, transparent 92%);
+          mask-image:radial-gradient(ellipse 58% 60% at 50% 48%, #000 52%, transparent 92%);
+  filter:drop-shadow(0 8px 26px rgba(0,0,0,0.55));
+}
+.ms-logo .l3 { font-size:12px; color:#7f96ad; margin-top:-6px; }
 /* 버튼 묶음은 아래로 붙인다 — 남는 공간을 위쪽 여백이 가져간다 */
 .ms-menu { margin-top:auto; margin-bottom:16px; display:flex; flex-direction:column; gap:9px; width:250px; }
 .gbtn {
@@ -1625,11 +1629,22 @@ body {
 #airship.deck #ad-panel { display:none; }
 #airship:not(.deck) .ad-scene { display:none; }
 .ad-sky {
-  position:absolute; inset:0; z-index:0;
+  position:absolute; inset:0; z-index:0; overflow:hidden;
   background:
     radial-gradient(ellipse at 50% 118%, rgba(90,140,200,0.30) 0%, transparent 58%),
     linear-gradient(180deg, #0a1424 0%, #12243c 46%, #1c3450 100%);
 }
+/* 갑판 하늘을 천천히 흘러가는 구름 — 하강 연출의 구름을 정적인 배경용으로 늘어뜨렸다 */
+.ad-cloud {
+  position:absolute; top:var(--y); width:var(--w); height:calc(var(--w) * 0.32);
+  border-radius:50%;
+  background:radial-gradient(ellipse at center, rgba(255,255,255,0.8), rgba(255,255,255,0.12) 70%, transparent 78%);
+  filter:blur(1.5px);
+  opacity:var(--o,0.45);
+  animation:ad-drift var(--t,60s) linear infinite;
+  animation-delay:var(--d,0s);
+}
+@keyframes ad-drift { from{ left:-26%; } to{ left:124%; } }
 .ad-head {
   position:relative; z-index:2; display:flex; align-items:baseline; gap:14px;
   padding:18px 34px 0;
@@ -2169,8 +2184,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
     <div>최고 진행 <b id="ms-best">—</b></div>
   </div>
   <div class="ms-logo">
-    <div class="l1">S · T · A</div>
-    <div class="l2">SKY TO ABYSS</div>
+    <img class="ms-logo-img" src="assets/Title_Image.png" alt="S · T · A — Sky to Abyss">
     <div class="l3">하늘에서 심연으로</div>
   </div>
   <div class="ms-menu">
@@ -2257,7 +2271,15 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
 <div id="airship">
   <!-- 갑판 — 시설을 눌러 들어간다 -->
   <div class="ad-scene" id="ad-scene">
-    <div class="ad-sky"></div>
+    <div class="ad-sky">
+      <div class="ad-cloud" style="--y:6%;  --w:260px; --o:.30; --t:78s; --d:-14s;"></div>
+      <div class="ad-cloud" style="--y:16%; --w:150px; --o:.45; --t:52s; --d:-38s;"></div>
+      <div class="ad-cloud" style="--y:11%; --w:330px; --o:.24; --t:92s; --d:-60s;"></div>
+      <div class="ad-cloud" style="--y:24%; --w:110px; --o:.5;  --t:40s; --d:-6s;"></div>
+      <div class="ad-cloud" style="--y:31%; --w:200px; --o:.34; --t:66s; --d:-46s;"></div>
+      <div class="ad-cloud" style="--y:20%; --w:90px;  --o:.55; --t:33s; --d:-20s;"></div>
+      <div class="ad-cloud" style="--y:36%; --w:170px; --o:.28; --t:58s; --d:-10s;"></div>
+    </div>
     <div class="ad-head">
       <div class="as-title" id="as-title">비 공 정</div>
       <div class="as-res" id="as-res"></div>
