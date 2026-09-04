@@ -337,7 +337,7 @@ body {
   62%  { transform:translateX(calc(var(--lx,22px) * 0.75)) scale(1.03); }
   100% { transform:none; }
 }
-.figure.recoil { animation:recoil .32s cubic-bezier(.25,.9,.3,1); }
+.figure.recoil { animation:recoil .64s cubic-bezier(.25,.9,.3,1); }
 @keyframes recoil {
   0%   { transform:none; }
   22%  { transform:translateX(var(--rx,14px)) scale(0.94); }
@@ -345,60 +345,28 @@ body {
 }
 
 .impact { position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:35; }
-.impact i { position:absolute; display:block; transform-origin:center; }
-.impact .slash {
-  left:-46px; top:-3px; width:92px; height:6px; border-radius:3px;
-  background:linear-gradient(to right, transparent, #fff, transparent);
-  filter:drop-shadow(0 0 8px rgba(255,240,200,0.95));
-  transform:rotate(-38deg) scaleX(0.2); opacity:0;
-  animation:slash .28s ease-out forwards;
+/* 공격자별 타격 이펙트 — 헬레네는 검광, 트리샤는 둔기 충격파, 올가는 마법진, 몬스터는 발톱 자국 */
+.impact .efx-wrap {
+  position:absolute; left:0; top:0;
+  transform:translate(-50%,-50%) scaleX(var(--dir,1));
 }
-.impact .slash.b { animation-delay:.07s; transform:rotate(24deg) scaleX(0.2); }
-@keyframes slash {
-  0%   { opacity:0; }
-  25%  { opacity:1; }
-  100% { opacity:0; transform:rotate(var(--r,-38deg)) scaleX(1.25); }
+.impact .efx-img {
+  position:absolute; left:0; top:0; height:auto;
+  transform:translate(-50%,-50%) scale(.5) rotate(var(--er,0deg));
+  opacity:0; mix-blend-mode:screen;
+  animation:efx-pop .84s cubic-bezier(.2,.85,.3,1) forwards;
 }
-.impact .slash   { --r:-38deg; }
-.impact .slash.b { --r:24deg; }
-.impact .burst {
-  left:-34px; top:-34px; width:68px; height:68px; border-radius:50%;
-  background:radial-gradient(circle, rgba(255,235,225,0.9) 0%, rgba(230,40,40,0.55) 38%, rgba(150,10,10,0.22) 62%, transparent 74%);
-  animation:burst .3s ease-out forwards;
+@keyframes efx-pop {
+  0%   { opacity:0; transform:translate(-50%,-50%) scale(.5)  rotate(var(--er,0deg)); }
+  20%  { opacity:1; transform:translate(-50%,-50%) scale(1.05) rotate(var(--er,0deg)); }
+  100% { opacity:0; transform:translate(-50%,-50%) scale(1.32) rotate(var(--er,0deg)); }
 }
-/* 사방으로 뻗는 붉은 가시 */
-.impact .rays {
-  left:-56px; top:-56px; width:112px; height:112px; opacity:0;
-  background:repeating-conic-gradient(from 12deg,
-    rgba(226,32,32,0.95) 0deg 3deg, transparent 3deg 30deg);
-  -webkit-mask:radial-gradient(circle, transparent 0 16%, #000 26%, #000 74%, transparent 88%);
-          mask:radial-gradient(circle, transparent 0 16%, #000 26%, #000 74%, transparent 88%);
-  animation:rays .34s cubic-bezier(.15,.85,.3,1) forwards;
-}
-@keyframes rays {
-  0%   { opacity:0;   transform:scale(.28) rotate(-10deg); }
-  22%  { opacity:1;   transform:scale(.95) rotate(0deg); }
-  100% { opacity:0;   transform:scale(1.55) rotate(8deg); }
-}
-.impact.crit .rays { width:150px; height:150px; left:-75px; top:-75px; }
-
-/* 페인트로 그은 X */
-.impact .xmark {
-  position:absolute; left:-44px; top:-44px; width:88px; height:88px;
-  fill:#d31c1c; opacity:0;
-  filter:drop-shadow(0 0 7px rgba(190,10,10,0.85));
-  animation:xmark .40s cubic-bezier(.2,.9,.3,1) forwards;
-}
-@keyframes xmark {
-  0%   { opacity:0; transform:scale(.45) rotate(calc(var(--xr,0deg) - 16deg)); }
-  18%  { opacity:1; transform:scale(1.14) rotate(var(--xr,0deg)); }
-  38%  { opacity:1; transform:scale(1) rotate(var(--xr,0deg)); }
-  100% { opacity:0; transform:scale(1.1) rotate(var(--xr,0deg)); }
-}
-.impact.crit .xmark { width:118px; height:118px; left:-59px; top:-59px; fill:#e82a12; }
-@keyframes burst { 0%{opacity:.95;transform:scale(.35)} 100%{opacity:0;transform:scale(1.5)} }
-.impact.crit .burst { background:radial-gradient(circle, rgba(255,220,150,0.95) 0%, rgba(255,120,40,0.5) 42%, transparent 72%); }
-.impact.crit .slash { height:8px; width:120px; left:-60px; }
+.impact .efx-img.slash   { width:230px; }
+.impact .efx-img.blunt   { width:195px; }
+.impact .efx-img.magic   { width:205px; }
+.impact .efx-img.monster { width:205px; }
+.impact.crit .efx-wrap { transform:translate(-50%,-50%) scaleX(var(--dir,1)) scale(1.25); }
+.impact.crit .efx-img { filter:brightness(1.25) drop-shadow(0 0 22px rgba(255,220,150,0.55)); }
 
 #field.shake { animation:shake .3s ease-out; }
 @keyframes shake {
@@ -1427,7 +1395,7 @@ body {
           mask-image:radial-gradient(ellipse 58% 60% at 50% 48%, #000 52%, transparent 92%);
   filter:drop-shadow(0 8px 26px rgba(0,0,0,0.55));
 }
-.ms-logo .l3 { font-size:12px; color:#7f96ad; margin-top:-6px; }
+.ms-tagline-img { display:block; width:min(220px,28vw); margin:-6px auto 0; user-select:none; pointer-events:none; }
 /* 버튼 묶음은 아래로 붙인다 — 남는 공간을 위쪽 여백이 가져간다 */
 .ms-menu { margin-top:auto; margin-bottom:16px; display:flex; flex-direction:column; gap:9px; width:250px; }
 .gbtn {
@@ -1631,8 +1599,9 @@ body {
 .ad-sky {
   position:absolute; inset:0; z-index:0; overflow:hidden;
   background:
-    radial-gradient(ellipse at 50% 118%, rgba(90,140,200,0.30) 0%, transparent 58%),
-    linear-gradient(180deg, #0a1424 0%, #12243c 46%, #1c3450 100%);
+    linear-gradient(180deg, rgba(4,10,20,0.34) 0%, rgba(4,10,20,0.08) 28%, rgba(4,10,20,0.62) 100%),
+    url('assets/STA_Sky.png') center 34% / cover no-repeat,
+    #0a1424;
 }
 /* 갑판 하늘을 천천히 흘러가는 구름 — 하강 연출의 구름을 정적인 배경용으로 늘어뜨렸다 */
 .ad-cloud {
@@ -1652,21 +1621,13 @@ body {
 .ad-foot { position:relative; z-index:2; display:flex; justify-content:center; gap:10px; padding:0 0 22px; }
 #as-back, #as-yard-shortcut { display:none; }
 
-/* 갑판 바닥 — 나중에 배경 그림이 생기면 이 자리에 깐다 */
+/* 갑판 바닥 — 비공정 그림(STA_Ship) 위에 시설 버튼을 겹쳐 놓는다 */
 .ad-deck { position:relative; z-index:1; flex:1; margin:6px 0; }
-.ad-hull {
-  position:absolute; left:8%; right:8%; top:26%; bottom:6%;
-  border-radius:46% 46% 22% 22% / 26% 26% 12% 12%;
-  background:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.16) 0 2px, transparent 2px 26px),
-    linear-gradient(180deg, #6b5233 0%, #4a3722 52%, #2c2013 100%);
-  box-shadow:0 -2px 0 rgba(190,150,95,0.35) inset, 0 22px 60px rgba(0,0,0,0.75);
-}
-.ad-rail {
-  position:absolute; left:8%; right:8%; top:25%; height:14px;
-  border-top:2px solid rgba(190,150,95,0.5);
-  border-radius:46% 46% 0 0 / 100% 100% 0 0;
-  background:repeating-linear-gradient(90deg, rgba(190,150,95,0.45) 0 3px, transparent 3px 34px);
+.ad-ship {
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:contain; object-position:center center;
+  pointer-events:none; user-select:none;
+  filter:drop-shadow(0 20px 46px rgba(0,0,0,0.6));
 }
 .ad-spots { position:absolute; inset:0; }
 
@@ -1966,7 +1927,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
     <button class="dbg" id="dbg-mad" title="임시: 아군 한 명을 붕괴 상태로">붕괴</button>
     <button class="dbg" id="dbg-kill" title="임시: 선택한 아군을 즉시 쓰러뜨린다">사망</button>
     <button class="dbg" id="dbg-sector" title="임시: 다음 공역으로 건너뛴다">공역 스킵</button>
-    <button class="dbg" id="tb-guide" title="가이드">?</button>
+    <button class="ov-btn nav-btn" id="tb-guide" title="가이드">가이드</button>
     <button id="tune-btn" title="밸런스 조정">⚙</button>
     <button class="ov-btn nav-btn" id="tb-quit">메인 화면으로</button>
   </div>
@@ -2185,7 +2146,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
   </div>
   <div class="ms-logo">
     <img class="ms-logo-img" src="assets/Title_Image.png" alt="S · T · A — Sky to Abyss">
-    <div class="l3">하늘에서 심연으로</div>
+    <img class="ms-tagline-img" src="assets/Title_Image_02.png" alt="하늘에서 심연으로">
   </div>
   <div class="ms-menu">
     <button class="gbtn gold" id="ms-start">게임 시작</button>
@@ -2286,8 +2247,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
       <button class="ov-btn nav-btn" id="as-yard-shortcut">비공정 강화</button>
     </div>
     <div class="ad-deck" id="ad-deck">
-      <div class="ad-hull"></div>
-      <div class="ad-rail"></div>
+      <img class="ad-ship" id="ad-ship-img" src="assets/STA_Ship.png" alt="">
       <div class="ad-spots" id="ad-spots"></div>
     </div>
     <div class="ad-foot">
@@ -2568,9 +2528,9 @@ const TUNE={
   postDelay:520,   // 적 행동 후 다음 유닛 턴 시작까지의 간격(ms)
   camZoom:1.35,    // 턴 시작 시 카메라가 그 유닛 쪽으로 밀고 들어가는 배율
   camHold:900,     // 확대 상태를 유지하는 시간(ms)
-  windupTime:280,  // 공격 자세를 잡고 내지르기까지의 시간(ms). 이 뒤에 타격이 들어간다
-  hitstop:70,      // 타격 순간 화면이 멎는 시간(ms)
-  strikeHold:640,  // 타격 후 그 자리에 머무는 시간(ms)
+  windupTime:560,  // 공격 자세를 잡고 내지르기까지의 시간(ms). 이 뒤에 타격이 들어간다
+  hitstop:140,     // 타격 순간 화면이 멎는 시간(ms)
+  strikeHold:1280, // 타격 후 그 자리에 머무는 시간(ms) — 무엇을 맞았는지 읽을 시간을 준다(기존의 2배)
   returnTime:420,  // 제자리로 돌아가는 시간(ms)
   camStrikeMax:1.8,
   camBattle:false, // 공격 · 버프 · 사망 시 카메라 확대. 끄면 화면이 움직이지 않는다
@@ -2578,7 +2538,7 @@ const TUNE={
   camDrift:34,     // 확대 중 카메라가 옆으로 흐르는 거리(px)
   camDriftMs:800,  // 흐르는 시간(ms). 확대가 끝나는 시점과 함께 멎는다// 합 장면 최대 배율
   camStrikePad:34, // 상자 주위로 남길 여백(px)
-  hitGap:620,      // 한 행동 안에서 타격이 이어지는 간격(ms) — 연격·광역이 한 번에 터지지 않게
+  hitGap:1240,     // 한 행동 안에서 타격이 이어지는 간격(ms) — 연격·광역이 한 번에 터지지 않게(기존의 2배)
   lungeStep:22,    // 제자리에서 앞으로 내지르는 거리(px). 대상까지 이동하지는 않는다
   fx:true,         // 타격 연출 사용 여부 (시뮬레이션 시 끔)
 };
@@ -3724,7 +3684,7 @@ const PORTRAITS={
 };
 const POSE_MISSING=new Set();          // 없는 것으로 확인된 파일은 다시 찾지 않는다
 /* 포즈를 유지하는 시간(ms). 버프는 카메라 연출과 같은 0.8초 동안 버틴 뒤 스탠딩으로 돌아온다 */
-const POSE_MS={attack:350,hurt:300,buff:800};
+const POSE_MS={attack:350,hurt:600,buff:800};
 
 function poseBase(u){
   if(u.hp<=0)return 'dead';
@@ -3893,9 +3853,16 @@ function recoilFx(target,dir){
   const fig=el.querySelector('.figure');if(!fig)return;
   fig.style.setProperty('--rx',`${dir*16}px`);
   fig.classList.remove('recoil');void fig.offsetWidth;fig.classList.add('recoil');
-  setTimeout(()=>fig.classList.remove('recoil'),340);
+  setTimeout(()=>fig.classList.remove('recoil'),680);
 }
-function impactFx(target,crit){
+/* 공격자별 타격 이펙트 이미지 — 헬레네는 소드 슬래시, 트리샤는 블런트 히트, 올가는 매직 스펠, 몬스터는 몬스터 어택 */
+const HITFX_IMG={
+  helene :{cls:'slash',   src:'assets/Effect/sword_slash_effect.png'},
+  tricia :{cls:'blunt',   src:'assets/Effect/blunt_hit_effect.png'},
+  olga   :{cls:'magic',   src:'assets/Effect/magic_spell_effect.png'},
+  monster:{cls:'monster', src:'assets/Effect/monster_attack_effect.png'},
+};
+function impactFx(target,crit,kind,dir){
   const el=getEl(target);if(!el)return;
   const fig=el.querySelector('.figure');if(!fig)return;
   const cam=document.getElementById('cam');
@@ -3904,10 +3871,12 @@ function impactFx(target,crit){
   mk.className='impact'+(crit?' crit':'');
   mk.style.left=`${unscale(r.left-cr.left+r.width/2)}px`;
   mk.style.top=`${unscale(r.top-cr.top+r.height/2)}px`;
-  mk.style.setProperty('--xr',(Math.random()*24-12).toFixed(1)+'deg');   // 매번 조금씩 삐뚤게
-  mk.innerHTML='<i class="rays"></i>'+xMark()+'<i class="slash"></i><i class="slash b"></i><i class="burst"></i>';
+  mk.style.setProperty('--er',(Math.random()*16-8).toFixed(1)+'deg');   // 매번 조금씩 삐뚤게
+  mk.style.setProperty('--dir',dir<0?-1:1);
+  const fx=HITFX_IMG[kind]||HITFX_IMG.monster;
+  mk.innerHTML=`<span class="efx-wrap"><img class="efx-img ${fx.cls}" src="${fx.src}" alt=""></span>`;
   cam.appendChild(mk);
-  setTimeout(()=>mk.remove(),520);
+  setTimeout(()=>mk.remove(),1040);
 }
 /* 페인트로 대충 칠한 듯한 X 표시.
    획의 폭이 일정하지 않고 끝이 갈라지도록 다각형으로 그린다. */
@@ -3967,7 +3936,7 @@ function hitFx(atk,target,text,type,crit,delay,shown){
     if(shown!==undefined)target.hpReveal=shown;
     hitStop();
     SFX.hit(crit,atkSfxKind(atk));
-    impactFx(target,crit);
+    impactFx(target,crit,atkSfxKind(atk),dir);
     recoilFx(target,dir);
     if(target.hp>0)setPose(target,'hurt',POSE_MS.hurt);
     flashEl(target,'damage');
@@ -5588,14 +5557,28 @@ function pay(c,bank){Object.keys(c).forEach(k=>bank[k]-=c[k]);}
 const CRAFT={card:{scrap:2,gold:60}, pot:{mana:1,gold:40}};
 function craftCap(fac){const lv=META.fac[fac]||0;return lv<=0?0:(lv>=2?2:1);}
 
-/* 갑판 위 시설 자리 (갑판 영역의 백분율) */
+/* 갑판 위 시설 자리 — STA_Ship 그림(1536x1024) 위 건물 위치의 백분율.
+   그림이 갑판 상자 안에서 letterbox(contain)되므로, shipRect() 로 실제 그림 영역을 구해 여기 곱한다. */
 const FAC_SPOT={
-  tower  :{x:50,y:37},   // 관제탑 — 갑판에서 가장 높은 자리
-  forge  :{x:18,y:57},
-  alchemy:{x:36,y:75},
-  arcane :{x:64,y:75},
-  hangar :{x:82,y:57},
+  tower  :{x:47.5,y:32},   // 관제탑 — 가운데 탑
+  forge  :{x:16,  y:34},   // 대장간 — 왼쪽 위(불꽃)
+  alchemy:{x:30.5,y:48},   // 연성 공방 — 왼쪽 아래
+  arcane :{x:65,  y:48},   // 마공학 연구소 — 오른쪽 아래(보라 연기)
+  hangar :{x:80,  y:34},   // 항공 지원소 — 오른쪽 위(날개 장식)
 };
+const SHIP_IMG_RATIO=1536/1024;
+/* .ad-deck 안에서 STA_Ship 그림이 실제로 그려지는 영역(letterbox 보정) */
+function shipRect(){
+  const deck=document.getElementById('ad-deck');
+  if(!deck)return null;
+  const cw=deck.clientWidth, ch=deck.clientHeight;
+  if(!cw||!ch)return null;
+  const cRatio=cw/ch;
+  let rw,rh,rx,ry;
+  if(SHIP_IMG_RATIO>cRatio){ rw=cw; rh=cw/SHIP_IMG_RATIO; rx=0; ry=(ch-rh)/2; }
+  else{ rh=ch; rw=ch*SHIP_IMG_RATIO; ry=0; rx=(cw-rw)/2; }
+  return {x:rx,y:ry,w:rw,h:rh};
+}
 let AS_MODE='yard', AS_TAB=null, AS_RETURN=null;   // AS_RETURN: 출항 준비 중 강화로 잠깐 들어왔으면 'depart'
 function openAirship(mode){
   AS_MODE=mode||'yard';
@@ -5741,6 +5724,7 @@ const GUIDE={
     '<div class="gd-p">세이브 초기화 — 저장된 비공정 자재 · 시설 · 업적 · 해금 정보를 전부 지운다. 한 번 더 눌러야 실행된다.</div></div>'},
 };
 let GD_TAB='flow';
+let GD_BACK='main';   // 닫을 때 메인 화면으로 나갈지('main') 그냥 지금 화면으로 돌아갈지 기억한다
 function openGuide(){
   document.getElementById('guide').classList.add('show');
   renderGuide();
@@ -6157,11 +6141,17 @@ function renderDeck(){
     if(departVisible())runTutorial('depart',TUT_DEPART);
     else if(yardVisible())runTutorial('yard',TUT_YARD);
   },450);
+  const rect=shipRect();
   Object.keys(FACS).forEach(id=>{
     const f=FACS[id], lv=META.fac[id]||0, pos=FAC_SPOT[id];
     const el=document.createElement('div');
     el.className='ad-fac'+(lv?'':' none');
-    el.style.left=pos.x+'%'; el.style.top=pos.y+'%';
+    if(rect){
+      el.style.left=(rect.x+rect.w*pos.x/100)+'px';
+      el.style.top =(rect.y+rect.h*pos.y/100)+'px';
+    }else{
+      el.style.left=pos.x+'%'; el.style.top=pos.y+'%';
+    }
     let pips='';for(let i=1;i<=f.max;i++)pips+='<i class="'+(i<=lv?'on':'')+'"></i>';
     el.innerHTML='<span class="d-ic">'+f.ic+'</span><span class="d-nm">'+f.name+'</span>'
       +'<span class="d-lv">'+(lv?('Lv.'+lv+' / '+f.max):'미건설')+'</span>'
@@ -6657,7 +6647,7 @@ document.getElementById('ms-wipe').addEventListener('click',e=>{
 document.getElementById('ms-ach').addEventListener('click',openAchieve);
 document.getElementById('ms-guide').addEventListener('click',()=>{
   document.getElementById('main-screen').classList.remove('show');
-  GD_TAB='flow'; openGuide();
+  GD_TAB='flow'; GD_BACK='main'; openGuide();
 });
 document.getElementById('ac-close').addEventListener('click',()=>{
   document.getElementById('achieve').classList.remove('show'); showMain();
@@ -6728,7 +6718,8 @@ document.getElementById('sh-exit').addEventListener('click',closeShop);
 document.getElementById('sh-back').addEventListener('click',()=>{shopView('main');renderShop();});
 document.getElementById('iv-close').addEventListener('click',closeInv);
 document.getElementById('gd-close').addEventListener('click',()=>{
-  document.getElementById('guide').classList.remove('show'); showMain();
+  document.getElementById('guide').classList.remove('show');
+  if(GD_BACK==='main')showMain();   // 지도·전투 중 열었을 때는 그 화면으로 그냥 돌아간다
 });
 document.getElementById('gd-tut').addEventListener('click',()=>{
   META.tut={}; saveMeta();
@@ -6739,8 +6730,8 @@ document.getElementById('tut-next').addEventListener('click',tutNext);
 document.getElementById('tut-prev').addEventListener('click',tutPrev);
 document.getElementById('tut-skip').addEventListener('click',endTutorial);
 document.getElementById('mp-inv').addEventListener('click',()=>openInv('map'));
-document.getElementById('mp-guide').addEventListener('click',()=>{GD_TAB='world';openGuide();});
-document.getElementById('tb-guide').addEventListener('click',()=>{GD_TAB='battle';openGuide();});
+document.getElementById('mp-guide').addEventListener('click',()=>{GD_TAB='world';GD_BACK='map';openGuide();});
+document.getElementById('tb-guide').addEventListener('click',()=>{GD_TAB='battle';GD_BACK='battle';openGuide();});
 document.getElementById('sc-deck').addEventListener('click',()=>{
   document.getElementById('sector-clear').classList.remove('show');
   openInv('clear');
