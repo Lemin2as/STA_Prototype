@@ -2572,6 +2572,9 @@ const FORMATIONS={
   line:[                      // 일렬 (참고용)
     {x:68,y:86,depth:1},{x:76,y:86,depth:1},{x:84,y:86,depth:1},
   ],
+  solo:[                      // 엘리트·보스처럼 혼자 나올 때 — 가운데에 크게 세운다
+    {x:73,y:84,depth:1.28},
+  ],
 };
 let ENEMY_FORMATION='scatter';
 function slotOf(list,i){
@@ -2626,81 +2629,151 @@ const BIOMES={
    CARDS
    스트레스를 낮추는 카드는 존재하지 않는다.
    ============================================================ */
+/* 카드 하나를 짓는다.
+   text 의 {필드} 를 카드가 들고 있는 값으로 펼쳐 desc 를 만든다.
+   피해·방어막·회복처럼 버프에 따라 화면 숫자가 달라지는 값은 꼬리표를 달아 두어,
+   paintCardNums() 가 매 렌더마다 현재 값으로 다시 계산해 넣는다.
+
+   숫자를 카드 필드에 한 번만 적으면 설명문과 계산식이 같은 값을 쓰게 되어,
+   한쪽만 고쳐서 「화면엔 9인데 실제로는 10」이 되는 일이 생기지 않는다. */
+const NUM_TAG={dmg:'dmg',bonus:'dmgd',blk:'blk',heal:'heal'};
+function mkCard(c){
+  c.desc=c.text.replace(/\{(\w+)\}/g,(m,k)=>{
+    const v=c[k];
+    if(v===undefined)return m;
+    return NUM_TAG[k]?`<b data-${NUM_TAG[k]}="${v}">${v}</b>`:String(v);
+  });
+  return c;
+}
+
 const CD={
   /* ── 헬레네 · 란츠크네히트의 도펠죌트너 ──
      리히테나워 계열 독일 장검술 기법명. 받아넘기고 되받아치는 반격 축. */
-  h_zorn:   {id:'h_zorn',name:'초른하우',cost:1,type:'attack',desc:'<i>분노 베기</i><br>단일 적 <b data-dmg="9">9</b> 피해<br>방어막 보유 시 +<b data-dmgd="5">5</b>',target:'enemy_single',
-             fx(S,c,t){dd(S,t,c.block>0?14:9,c);}},
-  h_zorn2:  {id:'h_zorn2',name:'초른하우',cost:1,type:'attack',desc:'<i>분노 베기</i><br>단일 적 <b data-dmg="9">9</b> 피해<br>방어막 보유 시 +<b data-dmgd="5">5</b>',target:'enemy_single',
-             fx(S,c,t){dd(S,t,c.block>0?14:9,c);}},
-  h_zwerch: {id:'h_zwerch',name:'츠베르히하우',cost:1,type:'attack',desc:'<i>가로 베기</i><br>단일 적 <b data-dmg="7">7</b> 피해<br>방어막 +<b data-blk="4">4</b>',target:'enemy_single',
-             fx(S,c,t){dd(S,t,7,c);gb(S,c,4);}},
-  h_krump:  {id:'h_krump',name:'크룸프하우',cost:1,type:'attack',desc:'<i>굽은 베기</i><br>단일 적 <b data-dmg="6">6</b> 피해<br>적 공격력 <b>-25%</b> (2턴)',target:'enemy_single',
-             fx(S,c,t){dd(S,t,6,c);ab(t,'wk',2,0.25);act(t,'약화');}},
-  h_schiel: {id:'h_schiel',name:'실하우',cost:2,type:'attack',desc:'<i>흘겨보는 베기</i><br>적 <b data-dmg="12">12</b> 피해<br>(방어막 무시)',target:'enemy_single',
-             fx(S,c,t){dd(S,t,12,c,true);}},
-  h_scheitel:{id:'h_scheitel',name:'샤이텔하우',cost:3,type:'attack',desc:'<i>정수리 베기</i><br>단일 적 <b data-dmg="20">20</b> 피해',target:'enemy_single',
-             fx(S,c,t){dd(S,t,20,c);}},
-  h_verset: {id:'h_verset',name:'페어제첸',cost:1,type:'defend',desc:'<i>받아넘기기</i><br>방어막 +<b data-blk="12">12</b><br>반격 <b>2턴</b>',target:'self',
-             fx(S,c){gb(S,c,12);ab(c,'rip',2,0);act(c,'반격 태세');}},
-  h_abset:  {id:'h_abset',name:'압제첸',cost:1,type:'defend',desc:'<i>빗겨내기</i><br>방어막 +<b data-blk="7">7</b><br>반격 <b>1턴</b>',target:'self',
-             fx(S,c){gb(S,c,7);ab(c,'rip',1,0);act(c,'반격 태세');}},
-  h_abset2: {id:'h_abset2',name:'압제첸',cost:1,type:'defend',desc:'<i>빗겨내기</i><br>방어막 +<b data-blk="7">7</b><br>반격 <b>1턴</b>',target:'self',
-             fx(S,c){gb(S,c,7);ab(c,'rip',1,0);act(c,'반격 태세');}},
-  h_nach:   {id:'h_nach',name:'나흐라이젠',cost:2,type:'attack',desc:'<i>추격</i><br>단일 적 <b data-dmg="6">6</b> 피해 ×2<br>반격 <b>1턴</b>',target:'enemy_single',
-             fx(S,c,t){dd(S,t,6,c);dd(S,t,6,c);ab(c,'rip',1,0);act(c,'반격 태세');}},
+  h_zorn:   mkCard({id:'h_zorn',name:'초른하우',cost:1,type:'attack',target:'enemy_single',
+             dmg:9,bonus:5,
+             text:'<i>분노 베기</i><br>단일 적 {dmg} 피해<br>방어막 보유 시 +{bonus}',
+             fx(S,c,t){dd(S,t,c.block>0?this.dmg+this.bonus:this.dmg,c);}}),
+  h_zorn2:  mkCard({id:'h_zorn2',name:'초른하우',cost:1,type:'attack',target:'enemy_single',
+             dmg:9,bonus:5,
+             text:'<i>분노 베기</i><br>단일 적 {dmg} 피해<br>방어막 보유 시 +{bonus}',
+             fx(S,c,t){dd(S,t,c.block>0?this.dmg+this.bonus:this.dmg,c);}}),
+  h_zwerch: mkCard({id:'h_zwerch',name:'츠베르히하우',cost:1,type:'attack',target:'enemy_single',
+             dmg:7,blk:4,
+             text:'<i>가로 베기</i><br>단일 적 {dmg} 피해<br>방어막 +{blk}',
+             fx(S,c,t){dd(S,t,this.dmg,c);gb(S,c,this.blk);}}),
+  h_krump:  mkCard({id:'h_krump',name:'크룸프하우',cost:1,type:'attack',target:'enemy_single',
+             dmg:6,wk:0.25,turns:2,
+             text:'<i>굽은 베기</i><br>단일 적 {dmg} 피해<br>적 공격력 <b>-25%</b> ({turns}턴)',
+             fx(S,c,t){dd(S,t,this.dmg,c);ab(t,'wk',this.turns,this.wk);act(t,'약화');}}),
+  h_schiel: mkCard({id:'h_schiel',name:'실하우',cost:2,type:'attack',target:'enemy_single',
+             dmg:12,
+             text:'<i>흘겨보는 베기</i><br>적 {dmg} 피해<br>(방어막 무시)',
+             fx(S,c,t){dd(S,t,this.dmg,c,true);}}),
+  h_scheitel:mkCard({id:'h_scheitel',name:'샤이텔하우',cost:3,type:'attack',target:'enemy_single',
+             dmg:20,
+             text:'<i>정수리 베기</i><br>단일 적 {dmg} 피해',
+             fx(S,c,t){dd(S,t,this.dmg,c);}}),
+  h_verset: mkCard({id:'h_verset',name:'페어제첸',cost:1,type:'defend',target:'self',
+             blk:12,turns:2,
+             text:'<i>받아넘기기</i><br>방어막 +{blk}<br>반격 <b>{turns}턴</b>',
+             fx(S,c){gb(S,c,this.blk);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
+  h_abset:  mkCard({id:'h_abset',name:'압제첸',cost:1,type:'defend',target:'self',
+             blk:7,turns:1,
+             text:'<i>빗겨내기</i><br>방어막 +{blk}<br>반격 <b>{turns}턴</b>',
+             fx(S,c){gb(S,c,this.blk);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
+  h_abset2: mkCard({id:'h_abset2',name:'압제첸',cost:1,type:'defend',target:'self',
+             blk:7,turns:1,
+             text:'<i>빗겨내기</i><br>방어막 +{blk}<br>반격 <b>{turns}턴</b>',
+             fx(S,c){gb(S,c,this.blk);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
+  h_nach:   mkCard({id:'h_nach',name:'나흐라이젠',cost:2,type:'attack',target:'enemy_single',
+             dmg:6,hits:2,turns:1,
+             text:'<i>추격</i><br>단일 적 {dmg} 피해 ×{hits}<br>반격 <b>{turns}턴</b>',
+             fx(S,c,t){for(let i=0;i<this.hits;i++)dd(S,t,this.dmg,c);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
 
   /* ── 트리샤 · 성전사 ──
      서서 버티는 것이 본업. 회복은 「끊기지 않을 만큼」만 얇게 얹는다.
      한 방에 살리는 카드는 없고, 방어막을 아군에게 나눠 주는 쪽으로 푼다. */
-  t_bul:    {id:'t_bul',name:'성벽',cost:1,type:'defend',desc:'<i>버텨 선다</i><br>방어막 +<b data-blk="14">14</b>',target:'self',fx(S,c){gb(S,c,14);}},
-  t_bul2:   {id:'t_bul2',name:'성벽',cost:1,type:'defend',desc:'<i>버텨 선다</i><br>방어막 +<b data-blk="14">14</b>',target:'self',fx(S,c){gb(S,c,14);}},
-  t_ward:   {id:'t_ward',name:'가호',cost:1,type:'defend',desc:'<i>작은 기도</i><br>방어막 +<b data-blk="6">6</b>',target:'self',fx(S,c){gb(S,c,6);}},
-  t_ward2:  {id:'t_ward2',name:'가호',cost:1,type:'defend',desc:'<i>작은 기도</i><br>방어막 +<b data-blk="6">6</b>',target:'self',fx(S,c){gb(S,c,6);}},
-  t_smite:  {id:'t_smite',name:'응징',cost:1,type:'attack',desc:'<i>방패로 밀친다</i><br>단일 적 <b data-dmg="8">8</b> 피해<br>자신 방어막 +<b data-blk="5">5</b>',target:'enemy_single',
-             fx(S,c,t){dd(S,t,8,c);gb(S,c,5);}},
-  t_hammer: {id:'t_hammer',name:'심판의 망치',cost:2,type:'attack',desc:'<i>내려친다</i><br>적 방어막 파괴 + <b data-dmg="16">16</b> 피해',target:'enemy_single',
-             fx(S,c,t){if(t.block>0){t.block=0;breakShield(t);}dd(S,t,16,c);}},
-  t_oath:   {id:'t_oath',name:'수호 서약',cost:1,type:'buff',desc:'<i>대신 맞아 준다</i><br>아군 한 명 받는 피해 <b>-5</b> (2턴)<br>HP +<b data-heal="4">4</b>',target:'ally_single',
-             fx(S,c,t){ab(t,'dr',2,5);hh(S,t,4);act(t,'서약');}},
-  t_chall:  {id:'t_chall',name:'도전',cost:1,type:'defend',desc:'<i>시선을 끈다</i><br>자신 방어막 +<b data-blk="8">8</b><br>적 공격력 <b>-30%</b> (2턴)',target:'enemy_single',
-             fx(S,c,t){gb(S,c,8);ab(t,'wk',2,0.3);log(S,`${t.name} 약화!`,'warning');act(t,'약화');}},
-  t_bless:  {id:'t_bless',name:'축복',cost:2,type:'heal',desc:'<i>얕은 기적</i><br>아군 한 명 HP +<b data-heal="10">10</b><br>방어막 +<b data-blk="8">8</b>',target:'ally_single',
-             fx(S,c,t){hh(S,t,10);gb(S,t,8);}},
-  t_sanct:  {id:'t_sanct',name:'성역',cost:3,type:'defend',desc:'<i>모두를 감싼다</i><br>아군 전원 방어막 +<b data-blk="12">12</b> · HP +<b data-heal="5">5</b>',target:'none',
-             fx(S,c){S.ch.filter(x=>x.hp>0).forEach(x=>{gb(S,x,12);hh(S,x,5);});}},
+  t_bul:    mkCard({id:'t_bul',name:'성벽',cost:1,type:'defend',target:'self',blk:14,
+             text:'<i>버텨 선다</i><br>방어막 +{blk}',
+             fx(S,c){gb(S,c,this.blk);}}),
+  t_bul2:   mkCard({id:'t_bul2',name:'성벽',cost:1,type:'defend',target:'self',blk:14,
+             text:'<i>버텨 선다</i><br>방어막 +{blk}',
+             fx(S,c){gb(S,c,this.blk);}}),
+  t_ward:   mkCard({id:'t_ward',name:'가호',cost:1,type:'defend',target:'self',blk:6,
+             text:'<i>작은 기도</i><br>방어막 +{blk}',
+             fx(S,c){gb(S,c,this.blk);}}),
+  t_ward2:  mkCard({id:'t_ward2',name:'가호',cost:1,type:'defend',target:'self',blk:6,
+             text:'<i>작은 기도</i><br>방어막 +{blk}',
+             fx(S,c){gb(S,c,this.blk);}}),
+  t_smite:  mkCard({id:'t_smite',name:'응징',cost:1,type:'attack',target:'enemy_single',
+             dmg:8,blk:5,
+             text:'<i>방패로 밀친다</i><br>단일 적 {dmg} 피해<br>자신 방어막 +{blk}',
+             fx(S,c,t){dd(S,t,this.dmg,c);gb(S,c,this.blk);}}),
+  t_hammer: mkCard({id:'t_hammer',name:'심판의 망치',cost:2,type:'attack',target:'enemy_single',
+             dmg:16,
+             text:'<i>내려친다</i><br>적 방어막 파괴 + {dmg} 피해',
+             fx(S,c,t){if(t.block>0){t.block=0;breakShield(t);}dd(S,t,this.dmg,c);}}),
+  t_oath:   mkCard({id:'t_oath',name:'수호 서약',cost:1,type:'buff',target:'ally_single',
+             heal:4,dr:5,turns:2,
+             text:'<i>대신 맞아 준다</i><br>아군 한 명 받는 피해 <b>-{dr}</b> ({turns}턴)<br>HP +{heal}',
+             fx(S,c,t){ab(t,'dr',this.turns,this.dr);hh(S,t,this.heal);act(t,'서약');}}),
+  t_chall:  mkCard({id:'t_chall',name:'도전',cost:1,type:'defend',target:'enemy_single',
+             blk:8,wk:0.3,turns:2,
+             text:'<i>시선을 끈다</i><br>자신 방어막 +{blk}<br>적 공격력 <b>-30%</b> ({turns}턴)',
+             fx(S,c,t){gb(S,c,this.blk);ab(t,'wk',this.turns,this.wk);log(S,`${t.name} 약화!`,'warning');act(t,'약화');}}),
+  t_bless:  mkCard({id:'t_bless',name:'축복',cost:2,type:'heal',target:'ally_single',
+             heal:10,blk:8,
+             text:'<i>얕은 기적</i><br>아군 한 명 HP +{heal}<br>방어막 +{blk}',
+             fx(S,c,t){hh(S,t,this.heal);gb(S,t,this.blk);}}),
+  t_sanct:  mkCard({id:'t_sanct',name:'성역',cost:3,type:'defend',target:'none',
+             blk:12,heal:5,
+             text:'<i>모두를 감싼다</i><br>아군 전원 방어막 +{blk} · HP +{heal}',
+             fx(S,c){S.ch.filter(x=>x.hp>0).forEach(x=>{gb(S,x,this.blk);hh(S,x,this.heal);});}}),
 
   /* ── 올가 · 무지개의 마녀 ──
      에테르를 모으는 카드와 태우는 카드가 짝을 이룬다.
      모으기: 프리즘 순환 +1 · 빛 흡수 +2 · 섬광 +1 (턴마다 자연 회복 +1)
      태우기: 무지개 광선 -1 · 일곱 빛깔 급류 -1 · 종막의 스펙트럼 -2 */
-  o_bolt:    {id:'o_bolt',name:'빛살',cost:1,type:'attack',desc:'<i>가느다란 빛</i><br>단일 적 <b data-dmg="10">10</b> 피해',target:'enemy_single',
-              fx(S,c,t){dd(S,t,10,c);}},
-  o_bolt2:   {id:'o_bolt2',name:'빛살',cost:1,type:'attack',desc:'<i>가느다란 빛</i><br>단일 적 <b data-dmg="10">10</b> 피해',target:'enemy_single',
-              fx(S,c,t){dd(S,t,10,c);}},
-  o_spark:   {id:'o_spark',name:'섬광',cost:1,type:'attack',desc:'<i>터뜨려 거둔다</i><br>단일 적 <b data-dmg="8">8</b> 피해<br>에테르 <b>+1</b>',target:'enemy_single',
-              fx(S,c,t){dd(S,t,8,c);gain(c,1);}},
-  o_flow:    {id:'o_flow',name:'프리즘 순환',cost:1,type:'buff',desc:'<i>빛을 나눈다</i><br>에테르 <b>+1</b> · 카드 <b>1</b>장 추가',target:'none',
-              fx(S,c){gain(c,1);dex(S,c,1);}},
-  o_absorb:  {id:'o_absorb',name:'빛 흡수',cost:1,type:'buff',desc:'<i>주위의 빛을 삼킨다</i><br>에테르 <b>+2</b>',target:'none',
-              fx(S,c){gain(c,2);act(c,'에테르 충전');}},
-  o_veil:    {id:'o_veil',name:'채색 결계',cost:2,type:'defend',desc:'<i>일곱 겹의 막</i><br>아군 전원 방어막 +<b data-blk="8">8</b>',target:'none',
-              fx(S,c){S.ch.filter(x=>x.hp>0).forEach(x=>gb(S,x,8));}},
-  o_dim:     {id:'o_dim',name:'퇴색',cost:1,type:'buff',desc:'<i>빛깔을 앗는다</i><br>적 공격력 <b>-40%</b> (2턴)',target:'enemy_single',
-              fx(S,c,t){ab(t,'wk',2,0.4);log(S,`${t.name} 약화!`,'warning');act(t,'약화');}},
-  o_ray:     {id:'o_ray',name:'무지개 광선',cost:2,rcost:1,type:'attack',desc:'<i>꿰뚫는 스펙트럼</i><br>적 <b data-dmg="15">15</b> 피해 (방어막 무시)',target:'enemy_single',
-              fx(S,c,t){dd(S,t,15,c,true);}},
-  o_torrent: {id:'o_torrent',name:'일곱 빛깔 급류',cost:3,rcost:1,type:'attack',desc:'<i>쏟아지는 색</i><br>모든 적 <b data-dmg="18">18</b> 피해',target:'none',
-              fx(S,c){S.en.filter(e=>e.hp>0).forEach(e=>dd(S,e,18,c));}},
-  o_apoc:    {id:'o_apoc',name:'종막의 스펙트럼',cost:4,rcost:2,type:'attack',desc:'<i>모든 색이 하나로</i><br>모든 적 <b data-dmg="28">28</b> 피해',target:'none',
-              fx(S,c){S.en.filter(e=>e.hp>0).forEach(e=>dd(S,e,28,c));}},
+  o_bolt:    mkCard({id:'o_bolt',name:'빛살',cost:1,type:'attack',target:'enemy_single',dmg:10,
+              text:'<i>가느다란 빛</i><br>단일 적 {dmg} 피해',
+              fx(S,c,t){dd(S,t,this.dmg,c);}}),
+  o_bolt2:   mkCard({id:'o_bolt2',name:'빛살',cost:1,type:'attack',target:'enemy_single',dmg:10,
+              text:'<i>가느다란 빛</i><br>단일 적 {dmg} 피해',
+              fx(S,c,t){dd(S,t,this.dmg,c);}}),
+  o_spark:   mkCard({id:'o_spark',name:'섬광',cost:1,type:'attack',target:'enemy_single',
+              dmg:8,ether:1,
+              text:'<i>터뜨려 거둔다</i><br>단일 적 {dmg} 피해<br>에테르 <b>+{ether}</b>',
+              fx(S,c,t){dd(S,t,this.dmg,c);gain(c,this.ether);}}),
+  o_flow:    mkCard({id:'o_flow',name:'프리즘 순환',cost:1,type:'buff',target:'none',
+              ether:1,draw:1,
+              text:'<i>빛을 나눈다</i><br>에테르 <b>+{ether}</b> · 카드 <b>{draw}</b>장 추가',
+              fx(S,c){gain(c,this.ether);dex(S,c,this.draw);}}),
+  o_absorb:  mkCard({id:'o_absorb',name:'빛 흡수',cost:1,type:'buff',target:'none',ether:2,
+              text:'<i>주위의 빛을 삼킨다</i><br>에테르 <b>+{ether}</b>',
+              fx(S,c){gain(c,this.ether);act(c,'에테르 충전');}}),
+  o_veil:    mkCard({id:'o_veil',name:'채색 결계',cost:2,type:'defend',target:'none',blk:8,
+              text:'<i>일곱 겹의 막</i><br>아군 전원 방어막 +{blk}',
+              fx(S,c){S.ch.filter(x=>x.hp>0).forEach(x=>gb(S,x,this.blk));}}),
+  o_dim:     mkCard({id:'o_dim',name:'퇴색',cost:1,type:'buff',target:'enemy_single',
+              wk:0.4,turns:2,
+              text:'<i>빛깔을 앗는다</i><br>적 공격력 <b>-40%</b> ({turns}턴)',
+              fx(S,c,t){ab(t,'wk',this.turns,this.wk);log(S,`${t.name} 약화!`,'warning');act(t,'약화');}}),
+  o_ray:     mkCard({id:'o_ray',name:'무지개 광선',cost:2,rcost:1,type:'attack',target:'enemy_single',dmg:15,
+              text:'<i>꿰뚫는 스펙트럼</i><br>적 {dmg} 피해 (방어막 무시)',
+              fx(S,c,t){dd(S,t,this.dmg,c,true);}}),
+  o_torrent: mkCard({id:'o_torrent',name:'일곱 빛깔 급류',cost:3,rcost:1,type:'attack',target:'none',dmg:18,
+              text:'<i>쏟아지는 색</i><br>모든 적 {dmg} 피해',
+              fx(S,c){S.en.filter(e=>e.hp>0).forEach(e=>dd(S,e,this.dmg,c));}}),
+  o_apoc:    mkCard({id:'o_apoc',name:'종막의 스펙트럼',cost:4,rcost:2,type:'attack',target:'none',dmg:28,
+              text:'<i>모든 색이 하나로</i><br>모든 적 {dmg} 피해',
+              fx(S,c){S.en.filter(e=>e.hp>0).forEach(e=>dd(S,e,this.dmg,c));}}),
 
   /* ── 생태계가 밀어 넣는 카드 ──
      어느 캐릭터의 덱에도 들어 있지 않다. 전투 중에만 존재하고, 전투가 끝나면 사라진다.
      효과가 없는 대신 에너지를 먹는다 — 파티 공용 에너지를 갉는 것이 이 카드의 피해다. */
-  x_tentacle:{id:'x_tentacle',name:'기괴한 촉수',cost:1,type:'curse',curse:true,target:'none',
-              desc:'<i>저편에서 뻗어 나온 것</i><br>사용해도 <b>아무 일</b>도 일어나지 않는다<br>전투가 끝나면 사라진다',
-              fx(S,c){log(S,`${c.name}이(가) 촉수를 떼어냈다 — 아무 일도 일어나지 않는다`,'warning');}}
+  x_tentacle:mkCard({id:'x_tentacle',name:'기괴한 촉수',cost:1,type:'curse',curse:true,target:'none',
+              text:'<i>저편에서 뻗어 나온 것</i><br>사용해도 <b>아무 일</b>도 일어나지 않는다<br>전투가 끝나면 사라진다',
+              fx(S,c){log(S,`${c.name}이(가) 촉수를 떼어냈다 — 아무 일도 일어나지 않는다`,'warning');}})
 };
 
 /* 전용 자원 회복 — 최대치를 넘지 않는다 */
@@ -2896,11 +2969,21 @@ function deckOf(id){
 function freshCh(){
   return PARTY_DEF.map(d=>mkCh(d.id,d.name,d.spd,d.hp,deckOf(d.id),d.res,d));
 }
-function freshEn(){return[
-  mkEn('troll','평원 트롤','🗿',8,60,10,0,'basic','바위 주먹'),
-  mkEn('ecto','엑토플라즘','👻',6,45,13,14,'alt','냉기 손아귀'),    // satk = 스트레스 기술 수치
-  mkEn('snail','땅고둥','🐌',4,50,8,0,'guard','껍질 박치기'),
-];}
+/* 전투에 세울 적. 노드 등급에 따라 구성이 달라진다.
+   엘리트·보스는 단일 개체로 나온다 — 여럿을 상대하는 일반 전투와 리듬을 다르게 하려는 것. */
+function freshEn(){
+  if(TUNE.grade==='elite')return[
+    mkEn('elite_troll','바위 파수꾼','🗿',7,110,14,0,'elite','짓뭉개기'),
+  ];
+  if(TUNE.grade==='boss')return[
+    mkEn('boss_troll','심연의 거석','🗿',6,190,17,10,'boss','대지 붕괴'),
+  ];
+  return[
+    mkEn('troll','평원 트롤','🗿',8,60,10,0,'basic','바위 주먹'),
+    mkEn('ecto','엑토플라즘','👻',6,45,13,14,'alt','냉기 손아귀'),    // satk = 스트레스 기술 수치
+    mkEn('snail','땅고둥','🐌',4,50,8,0,'guard','껍질 박치기'),
+  ];
+}
 
 /* ============================================================
    GAME STATE
@@ -3133,6 +3216,39 @@ function execEnemy(e){
       skillName(e.atkName,false);
       dd(G,t,eDmg(e),e,false,rollCrit(critOf(e)));
     }
+  }else if(e.pat==='elite'){
+    /* 힘을 모았다가 다음 턴에 내리친다 — 모으는 턴에 방어를 올릴지 때릴지 고르게 만든다.
+       공격력 상승은 statOf 가 알아서 반영하므로 여기서 수치를 다시 계산하지 않는다. */
+    if(e.aiN%2===1){
+      SFX.monsterBuff();
+      log(G,`${e.name}이(가) 힘을 모읍니다.`,'warning');skillName('힘 모으기',false);
+      ab(e,{stat:'atk',mul:1.8},2);
+      act(e,'힘 모으기');
+    }else{
+      const t=alive.reduce((m,c)=>c.hp<m.hp?c:m);
+      skillName(e.atkName,false);
+      dd(G,t,eDmg(e),e,false,rollCrit(critOf(e)));
+    }
+  }else if(e.pat==='boss'){
+    /* 세 턴이 한 묶음 — 전체 공격 · 방어막 · 단일 강타.
+       순서가 고정이라 유저가 읽고 대비할 수 있다. */
+    const phase=e.aiN%3;
+    if(phase===1){
+      log(G,`${e.name}의 「대지 붕괴」!`,'warning');skillName('대지 붕괴',false);
+      alive.forEach(c=>{
+        dd(G,c,Math.floor(eDmg(e)*0.7),e,false,false);
+        if(c.hp>0&&e.satk)ms(G,c,Math.floor(e.satk*0.5));
+      });
+    }else if(phase===2){
+      SFX.monsterBuff();
+      log(G,`${e.name}이(가) 바위를 두릅니다.`,'warning');skillName('암석 갑주',false);
+      gb(G,e,18); ab(e,{stat:'def',add:3},2); act(e,'암석 갑주');
+    }else{
+      const t=alive.reduce((m,c)=>c.hp>m.hp?c:m);
+      skillName('짓누르기',false);
+      dd(G,t,Math.floor(eDmg(e)*1.4),e,false,rollCrit(critOf(e)));
+      if(t.hp>0&&e.satk)ms(G,t,e.satk);
+    }
   }
   fxFinish();
   updateIntents();
@@ -3209,9 +3325,17 @@ function updateIntents(){
   G.en.forEach(e=>{
     if(e.hp<=0){e.intent=null;return;}
     const d=eDmg(e);
+    const next=e.aiN+1;
     if(e.pat==='basic')      e.intent={icon:'⚔',label:`공격 ${d}`};
-    else if(e.pat==='alt')   e.intent=(e.aiN+1)%2===1?{icon:'⚔',label:`공격 ${d}`}:{icon:'◈',label:'영혼 잠식'};
-    else                     e.intent=(e.aiN+1)%2===1?{icon:'🛡',label:'껍질 굳히기'}:{icon:'⚔',label:`공격 ${d}`};
+    else if(e.pat==='alt')   e.intent=next%2===1?{icon:'⚔',label:`공격 ${d}`}:{icon:'◈',label:'영혼 잠식'};
+    else if(e.pat==='elite') e.intent=next%2===1?{icon:'✊',label:'힘 모으기'}:{icon:'⚔',label:`짓뭉개기 ${d}`};
+    else if(e.pat==='boss'){
+      const ph=next%3;
+      e.intent = ph===1?{icon:'☄',label:`대지 붕괴 ${Math.floor(d*0.7)}`}
+               : ph===2?{icon:'🛡',label:'암석 갑주'}
+                       :{icon:'⚔',label:`짓누르기 ${Math.floor(d*1.4)}`};
+    }
+    else                     e.intent=next%2===1?{icon:'🛡',label:'껍질 굳히기'}:{icon:'⚔',label:`공격 ${d}`};
   });
 }
 
@@ -3316,7 +3440,21 @@ function relieve(S,c,n){
   spF(c,`스트레스 -${n}`,'stress');
   if(c.collapsed&&c.stress<=0){c.collapsed=false;c.colTurn=0;act(c,'붕괴 해제');applyPose(c);}
 }
-function ab(t,type,dur,val){const ex=t.buffs.find(b=>b.type===type);if(ex)ex.duration=Math.max(ex.duration,dur);else t.buffs.push({type,duration:dur,value:val});}
+/* 버프를 건다. 두 가지로 부를 수 있다.
+     ab(u,'wk',2,0.25)                — BUFF_SPEC 에 등록된 이름으로
+     ab(u,{stat:'atk',mul:1.6},2)     — 즉석으로. 등록 없이 아무 스탯이나 바꾼다 */
+function ab(t,type,dur,val){
+  if(type&&typeof type==='object'){
+    const key=type.type||('mod_'+type.stat);
+    const ex=t.buffs.find(b=>b.type===key);
+    if(ex)ex.duration=Math.max(ex.duration,dur);
+    else t.buffs.push(Object.assign({type:key,duration:dur},type));
+    return;
+  }
+  const ex=t.buffs.find(b=>b.type===type);
+  if(ex)ex.duration=Math.max(ex.duration,dur);
+  else t.buffs.push({type,duration:dur,value:val});
+}
 function tickBufs(u){u.buffs=u.buffs.map(b=>({...b,duration:b.duration-1})).filter(b=>b.duration>0);}
 /* 사용한 카드 연출 — 들어올렸다가 버린 더미로 들어간다. 그 뒤에 공격이 시작된다 */
 const CARD_POP_MS=140, CARD_FLY_MS=240;
@@ -3435,10 +3573,12 @@ function check(){
    ============================================================ */
 /* 금화 · 부산물 · 마력석은 전투마다 고정으로 획득한다.
    포션만 몬스터 등급에 따른 확률로 등장한다. */
+/* 노드 등급 — 난이도와 보상을 함께 정한다.
+   자원 범위를 여기에 두었으므로, 등급별 벌이를 이 표만 보고 조절할 수 있다. */
 const GRADES={
-  normal:{name:'일반',  potion:0.10},
-  elite :{name:'엘리트',potion:0.30},
-  boss  :{name:'보스',  potion:0.60},
+  normal:{name:'일반',  gold:[24,42],  scrap:[1,3],  mana:[0,2], potion:0.10, art:0.18},
+  elite :{name:'엘리트',gold:[50,80],  scrap:[3,6],  mana:[1,4], potion:0.30, art:0.45},
+  boss  :{name:'보스',  gold:[95,140], scrap:[6,11], mana:[3,7], potion:0.60, art:1.00},
 };
 const REWARD={cardPick:3, gold:[24,42], scrap:[1,3], mana:[0,2], artRate:0.18};
 let pendingReward=null;
@@ -3457,18 +3597,19 @@ function rollRewards(){
     const id=(rest.length?rest:pool)[Math.floor(Math.random()*(rest.length?rest.length:pool.length))];
     cands.push({owner:ch.id,ownerName:ch.name,cardId:id});
   }
+  const g=GRADES[G.grade]||GRADES.normal;   // 자원·확률을 전부 등급에서 꺼내 쓴다
   const r={
-    gold:rnd(...REWARD.gold), scrap:rnd(...REWARD.scrap), mana:rnd(...REWARD.mana),
+    gold:rnd(...(g.gold||REWARD.gold)), scrap:rnd(...(g.scrap||REWARD.scrap)), mana:rnd(...(g.mana||REWARD.mana)),
     cards:cands, potion:null, art:null, cardTaken:false,
   };
-  const gradeRate=(GRADES[G.grade]||GRADES.normal).potion;
+  const gradeRate=g.potion;
   if(RUN.potions.length<POTION_SLOTS && Math.random()<gradeRate){
     const ids=potPool();
     if(ids.length)r.potion=ids[Math.floor(Math.random()*ids.length)];
   }
   const own=new Set(RUN.arts);
   const rest=Object.keys(ARTS).filter(id=>!own.has(id));
-  if(rest.length && Math.random()<REWARD.artRate) r.art=rest[Math.floor(Math.random()*rest.length)];
+  if(rest.length && Math.random()<(g.art!==undefined?g.art:REWARD.artRate)) r.art=rest[Math.floor(Math.random()*rest.length)];
   return r;
 }
 
@@ -3728,6 +3869,11 @@ const PORTRAITS={
      모든 상태가 같은 파일을 가리키게 해서, 위의 헬레네/트리샤/올가와
      같은 포즈 파이프라인(figureEl/applyPose)을 그대로 탄다. */
   troll:{ dir:'assets/portraits/Monster/', name:()=>'Stone_Troll.png',
+           poses:{idle:'x',attack:'x',hurt:'x',buff:'x',dead:'x'} },
+  /* 엘리트·보스는 아직 전용 그림이 없어 트롤 그림을 빌려 쓴다 (임시) */
+  elite_troll:{ dir:'assets/portraits/Monster/', name:()=>'Stone_Troll.png',
+           poses:{idle:'x',attack:'x',hurt:'x',buff:'x',dead:'x'} },
+  boss_troll:{ dir:'assets/portraits/Monster/', name:()=>'Stone_Troll.png',
            poses:{idle:'x',attack:'x',hurt:'x',buff:'x',dead:'x'} },
   ecto: { dir:'assets/portraits/Monster/', name:()=>'Ectoplasm.png',
            poses:{idle:'x',attack:'x',hurt:'x',buff:'x',dead:'x'} },
@@ -4653,6 +4799,8 @@ const PAT_NOTE={
   basic:'체력이 가장 낮은 아군을 노린다.',
   alt :'한 턴 걸러 「영혼 잠식」으로 전원에게 스트레스를 준다.',
   guard:'한 턴 걸러 적 전체에 껍질을 둘러 방어막을 준다.',
+  elite:'한 턴 힘을 모아 공격력을 1.8배로 올린 뒤, 다음 턴에 가장 약한 아군을 노린다.',
+  boss :'세 턴이 한 묶음 — 전체 공격 → 암석 갑주 → 단일 강타 순으로 돈다.',
 };
 function enemyTip(u){
   const t=document.createElement('div');t.className='u-tip';
@@ -4709,7 +4857,8 @@ function renderEnemies(){
   info.querySelectorAll('.u-above-layer.enemy').forEach(e=>e.remove());
   document.getElementById('tip-layer').querySelectorAll('.u-tip:not(.ally)').forEach(e=>e.remove());
   const cur=G.q[G.qi];
-  const form=FORMATIONS[ENEMY_FORMATION]||FORMATIONS.scatter;
+  // 혼자 나오는 적은 산개 대형의 구석이 아니라 가운데에 세운다
+  const form=(G.en.length===1?FORMATIONS.solo:null)||FORMATIONS[ENEMY_FORMATION]||FORMATIONS.scatter;
   G.en.forEach((e,idx)=>{
     const u=document.createElement('div');u.className='unit enemy-unit';
     const eslot=slotOf(form,idx), edown=e.hp<=0;
