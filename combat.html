@@ -6879,9 +6879,12 @@ twemojiScan();
       · 레이어 간격을 벌려 입체감을 키웠다.
      ══════════════════════════════════════════════════════════════════ -->
 <style>
-#cam.depth-on{ background-image:none !important; }
+/* 3D 컨텍스트가 되면 #cam 자신의 면이 음수 Z 로 밀린 자식들보다 앞에 놓여
+   유닛 클릭(붕괴·사망의 대상 선택)을 전부 삼킨다. 배경 층과 함께 클릭을 비운다.
+   유닛·카드는 스스로 pointer-events:auto 를 갖고 있어 영향받지 않는다. */
+#cam.depth-on{ background-image:none !important; pointer-events:none; }
 #depth-world{ position:absolute; inset:0; transform-style:preserve-3d; }
-#depth-bg{ position:absolute; inset:0; transform-style:preserve-3d; }
+#depth-bg{ position:absolute; inset:0; transform-style:preserve-3d; pointer-events:none; }
 #depth-bg .dl{ position:absolute; inset:0; transform-origin:center center; will-change:transform; }
 #depth-bg .dl canvas{ display:block; width:100%; height:100%; }
 #depth-wash{ position:absolute; inset:0; pointer-events:none; }
@@ -7009,10 +7012,17 @@ twemojiScan();
     });
   }
 
+  /* 드리프트가 층을 최대 ~18px 밀고 살짝 회전시키므로, Z 보정만 하면 그만큼
+     가장자리 바깥의 빈 곳이 드러난다. 층을 조금 키워 그 여백을 덮는다. */
+  const OVERSCAN = 1.06;
+
   function place(){
     layers.forEach(({ def, el }) => {
       const k = (DEPTH.perspective - def.z) / DEPTH.perspective;
-      el.style.transform = `translateZ(${def.z}px) scale(${k.toFixed(4)})`;
+      /* 확대 기준점을 원근 기준점과 같게 둔다. 중심 기준으로 키우면 소실점이
+         화면 중앙보다 위에 있는 만큼 아래쪽만 덜 덮여 바닥이 드러난다. */
+      el.style.transformOrigin = DEPTH.perspectiveOrigin;
+      el.style.transform = `translateZ(${def.z}px) scale(${(k * OVERSCAN).toFixed(4)})`;
     });
   }
 
