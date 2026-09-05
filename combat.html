@@ -1275,7 +1275,6 @@ body {
 .ds-arrow{ font-size:15px; color:#ffd07a; animation:ds-ar 1s ease-in-out infinite; }
 @keyframes ds-ar { 0%,100%{transform:translateY(0);opacity:.5} 50%{transform:translateY(5px);opacity:1} }
 .ds-to   { font-size:30px; font-weight:700; color:#fff; letter-spacing:2px; }
-.ds-eco  { font-size:14px; color:#ffd07a; letter-spacing:1px; }
 
 /* ── 공역 지도 ── */
 #map-screen {
@@ -1764,7 +1763,8 @@ body {
 }
 .sh-head { display:flex; align-items:baseline; gap:14px; }
 .sh-title { font-size:24px; font-weight:700; color:#eaf4ff; letter-spacing:6px; }
-.sh-gold { margin-left:auto; font-size:13px; color:#9fb4cc; }
+.sh-head #sh-inv { margin-left:auto; align-self:center; }
+.sh-gold { font-size:13px; color:#9fb4cc; }
 .sh-gold b { color:#ffd76a; font-size:17px; }
 .sh-scroll { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:14px; align-content:flex-start; }
 .sh-sect { display:flex; flex-direction:column; gap:7px; }
@@ -2106,7 +2106,6 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
     <div class="ds-from" id="ds-from"></div>
     <div class="ds-arrow">▼</div>
     <div class="ds-to" id="ds-to"></div>
-    <div class="ds-eco" id="ds-eco"></div>
   </div>
 </div>
 
@@ -2276,6 +2275,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
   <div class="sh-box">
     <div class="sh-head">
       <div class="sh-title">상 점</div>
+      <button class="ov-btn ghost" id="sh-inv">현재 덱 보기</button>
       <div class="sh-gold">보유 금화 <b id="sh-gold">0</b></div>
     </div>
     <div class="sh-scroll" id="sh-main">
@@ -5291,7 +5291,6 @@ function playDescent(from,to,done){
 
   document.getElementById('ds-from').textContent=(SECTORS[from]?SECTORS[from].name:from+'차 공역');
   document.getElementById('ds-to').textContent=(SECTORS[to]?SECTORS[to].name:to+'차 공역');
-  document.getElementById('ds-eco').textContent=RUN.eco||'';
 
   void box.offsetWidth;
   mark.style.left=b.x+'%'; mark.style.top=b.y+'%';   // 지도 위를 짚어 간다
@@ -6735,6 +6734,7 @@ document.getElementById('tut-next').addEventListener('click',tutNext);
 document.getElementById('tut-prev').addEventListener('click',tutPrev);
 document.getElementById('tut-skip').addEventListener('click',endTutorial);
 document.getElementById('mp-inv').addEventListener('click',()=>openInv('map'));
+document.getElementById('sh-inv').addEventListener('click',()=>openInv('shop'));
 document.getElementById('mp-guide').addEventListener('click',()=>{GD_TAB='world';GD_BACK='map';openGuide();});
 document.getElementById('tb-guide').addEventListener('click',()=>{GD_TAB='battle';GD_BACK='battle';openGuide();});
 document.getElementById('sc-deck').addEventListener('click',()=>{
@@ -6863,6 +6863,204 @@ document.getElementById('strike-veil').style.opacity='0';
 preloadPoses();
 newGame();showMain();requestAnimationFrame(atmFrame);
 twemojiScan();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════════════════
+     배경 뎁스 (HD-2D) v2
+     기존 코드는 건드리지 않는다. 끄려면 DEPTH.enabled 를 false 로.
+     콘솔에서 window.STA_DEPTH 로 실시간 조절 가능.
+
+     v2 에서 고친 것
+      · 근경 레이어 제거 — 캐릭터보다 앞이라 발밑 표시를 가리고, 딤에도 안 덮였다.
+        진짜 전경은 오려낸 투명 이미지가 필요하다. 띠로 자른 것으로는 안 된다.
+      · 체력·이름표(#info-row)를 3D 층 밖으로 빼고 2D 정수 이동만 시킨다 — 글자가 안 뭉개진다.
+      · 회전을 줄이고 이동을 늘렸다 — 시차는 유지하면서 글자 왜곡을 줄인다.
+      · 레이어 간격을 벌려 입체감을 키웠다.
+     ══════════════════════════════════════════════════════════════════ -->
+<style>
+#cam.depth-on{ background-image:none !important; }
+#depth-world{ position:absolute; inset:0; transform-style:preserve-3d; }
+#depth-bg{ position:absolute; inset:0; transform-style:preserve-3d; }
+#depth-bg .dl{ position:absolute; inset:0; transform-origin:center center; will-change:transform; }
+#depth-bg .dl canvas{ display:block; width:100%; height:100%; }
+#depth-wash{ position:absolute; inset:0; pointer-events:none; }
+</style>
+<script>
+(() => {
+  "use strict";
+
+  /* ── 데모에서 복사한 값이 들어가는 자리 ─────────────────────────── */
+  const DEPTH = {
+    enabled: true,
+
+    perspective: 1200,          // 작을수록 광각(원근 강함)
+    perspectiveOrigin: "50% 46%",
+    focusY: 0.47,               // 배경 세로 기준점 — 기존 'center 47%' 와 맞춤
+
+    // 회전은 글자를 뭉개므로 작게, 이동은 시차를 만드므로 크게 잡는다
+    drift: { rotate: 0.32, travel: 18, speed: 1.05 },
+
+    dof: 2.1,                   // 피사계 심도 배수
+
+    bands: { far: 0.44, mid: 0.58, feather: 0.05 },
+
+    // 전부 음수 Z — 캐릭터(z:0)보다 뒤에 있어야 발밑 표시를 안 가린다
+    layers: [
+      { id:"base",   z:-1750, blur:2.8, band:null     },
+      { id:"far",    z:-1080, blur:1.4, band:"far"    },
+      { id:"mid",    z:-540,  blur:0.6, band:"mid"    },
+      { id:"ground", z:-60,   blur:0.0, band:"ground" },
+    ],
+  };
+  /* ──────────────────────────────────────────────────────────────── */
+
+  const cam = document.getElementById("cam");
+  if (!cam || !DEPTH.enabled) return;
+
+  /* ── DOM 을 감싼다 — 마크업 수정 없이 실행 시점에 ─────────────────
+     #cam ─ perspective (자기 transform 은 기존 줌 로직이 계속 쓴다)
+       ├ #depth-world ─ preserve-3d, 유휴 드리프트
+       │   ├ #depth-bg   ─ 배경 레이어 (전부 음수 Z)
+       │   ├ #depth-wash ─ 기존 틴트 그라데이션
+       │   └ (기존 strike-veil / ally-row / enemy-row)
+       └ #info-row ─ 3D 밖. 글자가 뭉개지지 않게 2D 정수 이동만 따라간다   */
+  const world = document.createElement("div"); world.id = "depth-world";
+  const bgBox = document.createElement("div"); bgBox.id = "depth-bg";
+  const wash  = document.createElement("div"); wash.id  = "depth-wash";
+
+  while (cam.firstChild) world.appendChild(cam.firstChild);
+  world.insertBefore(wash,  world.firstChild);
+  world.insertBefore(bgBox, world.firstChild);
+  cam.appendChild(world);
+
+  // 게이지·이름표는 3D 밖으로 되돌린다
+  const info = document.getElementById("info-row");
+  if (info) cam.appendChild(info);
+
+  cam.classList.add("depth-on");
+  cam.style.perspective = DEPTH.perspective + "px";
+  cam.style.perspectiveOrigin = DEPTH.perspectiveOrigin;
+
+  const layers = DEPTH.layers.map(def => {
+    const el = document.createElement("div"); el.className = "dl";
+    const cv = document.createElement("canvas");
+    el.appendChild(cv); bgBox.appendChild(el);
+    return { def, el, cv, ctx: cv.getContext("2d") };
+  });
+
+  /* ── 현재 배경 그림을 #cam 의 인라인 스타일에서 읽는다 ────────────
+     applySectorArt() 가 배경을 바꿔도 그대로 따라간다.               */
+  const img = new Image();
+  let ready = false, lastUrl = "";
+
+  function readBg(){
+    const raw = cam.style.backgroundImage || "";
+    const m = raw.match(/url\(["']?([^"')]+)["']?\)/);
+    if (!m) return;
+    const tint = raw.slice(0, raw.indexOf("url(")).replace(/,\s*$/, "").trim();
+    wash.style.backgroundImage = tint || "none";
+    if (m[1] !== lastUrl){
+      lastUrl = m[1]; ready = false;
+      img.onload = () => { ready = true; bake(); };
+      img.src = m[1];
+    }
+  }
+
+  /* ── 굽기: 블러와 마스크를 캔버스에 한 번만 적용 ─────────────────
+     매 프레임 바뀌는 건 transform 뿐이라 GPU 합성만 돈다.          */
+  function bake(){
+    if (!ready || !img.naturalWidth) return;
+    const w = Math.max(1, cam.clientWidth), h = Math.max(1, cam.clientHeight);
+    const f = DEPTH.bands.feather;
+    const BANDS = {
+      far   : [0.10,                DEPTH.bands.far],
+      mid   : [DEPTH.bands.far - f, DEPTH.bands.mid],
+      ground: [DEPTH.bands.mid - f, 1.02],
+    };
+
+    const cover = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * cover, dh = img.naturalHeight * cover;
+    const dx = (w - dw) / 2, dy = (h - dh) * DEPTH.focusY;
+
+    layers.forEach(({ def, cv, ctx }) => {
+      if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+      ctx.clearRect(0, 0, w, h);
+
+      const k = (DEPTH.perspective - def.z) / DEPTH.perspective;
+      const target = (def.blur + Math.abs(def.z + 60) / 900) * DEPTH.dof;
+      const px = target / Math.max(k, 0.001);
+      ctx.filter = px > 0.05 ? `blur(${px.toFixed(2)}px)` : "none";
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.filter = "none";
+
+      const band = BANDS[def.band];
+      if (band){
+        const cl = v => Math.max(0, Math.min(1, v));
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(cl(band[0] - f), "rgba(0,0,0,0)");
+        g.addColorStop(cl(band[0]),     "rgba(0,0,0,1)");
+        g.addColorStop(cl(band[1]),     "rgba(0,0,0,1)");
+        g.addColorStop(cl(band[1] + f), "rgba(0,0,0,0)");
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = "source-over";
+      }
+    });
+  }
+
+  function place(){
+    layers.forEach(({ def, el }) => {
+      const k = (DEPTH.perspective - def.z) / DEPTH.perspective;
+      el.style.transform = `translateZ(${def.z}px) scale(${k.toFixed(4)})`;
+    });
+  }
+
+  /* ── 유휴 드리프트 ────────────────────────────────────────────── */
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const t0 = performance.now();
+  let running = true;
+
+  function frame(now){
+    if (!running) return;
+    const D = DEPTH.drift;
+    const R = reduce ? 0 : D.rotate, T = reduce ? 0 : D.travel, S = D.speed;
+    const t = (now - t0) / 1000;
+
+    const ry = Math.sin(t * 0.34 * S) * R;
+    const rx = Math.sin(t * 0.23 * S + 1.7) * R * 0.45;
+    const tx = Math.sin(t * 0.41 * S + 0.6) * T;
+    const ty = Math.sin(t * 0.29 * S + 2.4) * T * 0.45;
+
+    world.style.transform =
+      `translate3d(${tx.toFixed(2)}px,${ty.toFixed(2)}px,0) ` +
+      `rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg)`;
+
+    /* 게이지는 3D 밖이라 시차를 안 받는다.
+       유닛(z:0)의 화면 이동량은 정확히 tx,ty 이므로 그만큼만 따라가되
+       정수 픽셀로 잘라 글자가 흐려지지 않게 한다. */
+    if (info) info.style.transform = `translate(${Math.round(tx)}px,${Math.round(ty)}px)`;
+
+    requestAnimationFrame(frame);
+  }
+
+  new MutationObserver(readBg).observe(cam, { attributes:true, attributeFilter:["style"] });
+  let rz = null;
+  addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { place(); bake(); }, 150); });
+
+  readBg(); place();
+  requestAnimationFrame(frame);
+
+  window.STA_DEPTH = {
+    config: DEPTH,
+    apply(){ cam.style.perspective = DEPTH.perspective + "px"; place(); bake(); },
+    off(){ running = false; world.style.transform = "none";
+           if (info) info.style.transform = "none";
+           cam.classList.remove("depth-on"); bgBox.style.display = "none"; },
+    on(){ running = true; cam.classList.add("depth-on");
+          bgBox.style.display = ""; requestAnimationFrame(frame); this.apply(); },
+  };
+})();
 </script>
 </body>
 </html>
