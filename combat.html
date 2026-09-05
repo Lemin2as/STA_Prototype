@@ -2715,7 +2715,7 @@ const ARTS={
   charm:  {id:'charm',icon:'📿',name:'하강자의 부적',desc:'붕괴의 최대 체력 감소율 <b>절반</b>',hpLossMul:0.5},
   aegis:  {id:'aegis',icon:'🛡',name:'수호 부적',desc:'아군이 받는 피해 <b>-2</b>',dmgReduce:2},
   helm:   {id:'helm',icon:'⛑',name:'강철 투구',desc:'치명타로 맞을 때 오르는 스트레스 <b>-40%</b>',critStressMul:0.6},
-  weight: {id:'weight',icon:'⚓',name:'균형추',desc:'아군 전원 속도 <b>+1</b>',onStart(S){S.ch.forEach(c=>c.spd+=1);}},
+  weight: {id:'weight',icon:'⚓',name:'균형추',desc:'아군 전원 속도 <b>+1</b>',spdBonus:1},
   quiver: {id:'quiver',icon:'🎯',name:'여분의 화살통',desc:'전투 첫 턴 드로우 <b>+2</b>',firstDraw:2},
   bell:   {id:'bell',icon:'🔔',name:'반향의 종',desc:'0코스트 카드 사용 시 에너지 <b>+1</b> 환급',refund0:true},
   sigil:  {id:'sigil',icon:'🔱',name:'파수꾼의 인장',desc:'전투 시작 시 아군 전원 방어막 <b>+8</b>',onStart(S){S.ch.forEach(c=>gb(S,c,8));}},
@@ -2984,8 +2984,8 @@ function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor
 /* ── 행동 순서 ── */
 function buildQ(){
   const u=[
-    ...G.ch.filter(c=>c.hp>0).map(c=>({unit:c,ally:true,spd:c.spd})),
-    ...G.en.filter(e=>e.hp>0).map(e=>({unit:e,ally:false,spd:e.spd})),
+    ...G.ch.filter(c=>c.hp>0).map(c=>({unit:c,ally:true,spd:spdOf(c)})),
+    ...G.en.filter(e=>e.hp>0).map(e=>({unit:e,ally:false,spd:spdOf(e)})),
   ];
   u.sort((a,b)=>b.spd-a.spd);
   for(let i=0;i<u.length-1;i++){
@@ -3138,26 +3138,73 @@ function execEnemy(e){
   updateIntents();
 }
 function rollCrit(p){return Math.random()<p;}
+
+/* ══════════════════════════════════════════════════════════════
+   스탯을 읽는 단 하나의 통로.
+
+   기본값(PARTY_DEF·mkEn 에 적힌 값)은 절대 덮어쓰지 않는다.
+   아티팩트·버프·상태가 그 위에 얹는 보정을 매번 합산해 「지금 값」을 낸다.
+
+   새 버프·디버프·아티팩트·포션이 생겨도 읽는 쪽은 고치지 않는다 —
+   BUFF_SPEC 에 한 줄을 넣거나, {stat,add,mul} 을 들고 있는 버프를 붙이면 된다.
+   ══════════════════════════════════════════════════════════════ */
+function statOf(u,stat){
+  if(!u)return 0;
+  let add=artSum(stat+'Bonus');     // 아티팩트의 더하기 보정 (예: spdBonus)
+  let mul=artMul(stat+'Mul');       // 아티팩트의 배율 보정 (예: hpLossMul)
+  (u.buffs||[]).forEach(b=>{
+    const sp=BUFF_SPEC[b.type];
+    if(sp&&sp.stat===stat){         // 이름이 정해진 버프 — 뜻은 BUFF_SPEC 이 안다
+      if(sp.add)add+=sp.add(b.value);
+      if(sp.mul)mul*=sp.mul(b.value);
+    }
+    if(b.stat===stat){              // 즉석 버프 — 자기가 무엇을 바꾸는지 직접 들고 있다
+      add+=b.add||0;
+      mul*=(b.mul!==undefined?b.mul:1);
+    }
+  });
+  return ((u[stat]||0)+add)*mul;
+}
+function hasBuff(u,type){return !!(u&&u.buffs&&u.buffs.some(b=>b.type===type));}
+
+/* 기본값과 무관하게 「보정만」 뽑는다.
+   카드 피해처럼 유닛에 대응하는 기본 스탯이 없는 값에 얹을 때 쓴다. */
+function modAdd(u,stat){
+  if(!u)return 0;
+  let add=artSum(stat+'Bonus');
+  (u.buffs||[]).forEach(b=>{
+    const sp=BUFF_SPEC[b.type];
+    if(sp&&sp.stat===stat&&sp.add)add+=sp.add(b.value);
+    if(b.stat===stat)add+=b.add||0;
+  });
+  return add;
+}
+function modMul(u,stat){
+  if(!u)return 1;
+  let mul=artMul(stat+'Mul');
+  (u.buffs||[]).forEach(b=>{
+    const sp=BUFF_SPEC[b.type];
+    if(sp&&sp.stat===stat&&sp.mul)mul*=sp.mul(b.value);
+    if(b.stat===stat&&b.mul!==undefined)mul*=b.mul;
+  });
+  return mul;
+}
+
 /* 유닛의 치명타 확률(%) */
-function critOf(u){return (u&&u.crit!==undefined)?u.crit/100:TUNE.critAlly;}
-/* 유닛의 회피 확률(%) — 둔화/민첩 상태이상이 붙으면 여기에 얹는다 */
-function evaOf(u){
-  let e=(u&&u.eva)||0;
-  const b=u&&u.buffs?u.buffs.find(x=>x.type==='eva'):null; if(b)e+=b.value;
-  return Math.max(0,Math.min(80,e))/100;   // 회피는 80%를 넘지 않는다
-}
-/* 유닛의 피해 경감(고정) — 취약/견고가 붙으면 여기에 얹는다 */
-function defOf(u){
-  let d=(u&&u.def)||0;
-  const b=u&&u.buffs?u.buffs.find(x=>x.type==='def'):null; if(b)d+=b.value;
-  return d;
-}
+function critOf(u){return (u&&u.crit!==undefined)?statOf(u,'crit')/100:TUNE.critAlly;}
+/* 유닛의 회피 확률(%) */
+function evaOf(u){return Math.max(0,Math.min(80,statOf(u,'eva')))/100;}   // 80%를 넘지 않는다
+/* 유닛의 피해 경감(고정) */
+function defOf(u){return statOf(u,'def');}
+/* 유닛의 속도 — 턴 순서를 정한다 */
+function spdOf(u){return Math.max(0,Math.round(statOf(u,'spd')));}
 /* 유닛의 스트레스 저항(%) — 공포가 걸리면 저항이 사라진다 */
 function mindOf(u){
-  if(u&&u.buffs&&u.buffs.some(b=>b.type==='fear'))return 0;
-  return Math.max(-100,Math.min(90,(u&&u.mind)||0));
+  if(hasBuff(u,'fear'))return 0;
+  return Math.max(-100,Math.min(90,statOf(u,'mind')));
 }
-function eDmg(e){let d=e.atk;const w=e.buffs.find(b=>b.type==='wk');if(w)d=Math.floor(d*(1-w.value));return d;}
+/* 적이 이번에 넣을 피해 */
+function eDmg(e){return Math.max(0,Math.floor(statOf(e,'atk')));}
 function updateIntents(){
   G.en.forEach(e=>{
     if(e.hp<=0){e.intent=null;return;}
@@ -3179,7 +3226,7 @@ function dd(S,target,amount,atk,pierce=false,crit=null,counter=false,dmgKind='da
   let dmg=amount;
   if(byAlly&&!counter)dmg+=artSum('dmgBonus');
   if(atk&&atk.collapsed)dmg=Math.floor(dmg*TUNE.colDmgOut);
-  const aw=atk&&atk.buffs?atk.buffs.find(b=>b.type==='wk'):null;if(aw)dmg=Math.floor(dmg*(1-aw.value));
+  dmg=Math.floor(dmg*modMul(atk,'atk'));   // 공격력 배율(약화 등). 아군은 atk 기본값이 없으므로 배율만 쓴다
   if(crit)dmg=Math.floor(dmg*TUNE.critMul);
   if(isEnemy&&TUNE.biome==='cavern')dmg=Math.floor(dmg*0.8);
   if(!isEnemy)dmg=Math.max(0,dmg-artSum('dmgReduce'));
@@ -3211,7 +3258,7 @@ function dd(S,target,amount,atk,pierce=false,crit=null,counter=false,dmgKind='da
     return;
   }
   if(target.collapsed)dmg=Math.floor(dmg*TUNE.colDmgIn);
-  const dr=target.buffs?target.buffs.find(b=>b.type==='dr'):null;if(dr)dmg=Math.max(0,dmg-dr.value);
+  dmg=Math.max(0,dmg+modAdd(target,'dmg_taken'));   // 피해 경감 등 「받는 피해」 보정
   dmg=Math.max(0,dmg-defOf(target));   // 방어 스탯 — 방어막이 다 깎인 뒤 남은 피해를 줄인다
 
   target.hp=Math.max(0,target.hp-dmg);
@@ -3242,8 +3289,8 @@ function dd(S,target,amount,atk,pierce=false,crit=null,counter=false,dmgKind='da
     }
   }
 }
-function hh(S,t,n){const a=Math.min(n,t.maxHp-t.hp);t.hp+=a;revealHp(t);log(S,`${t.name} HP +${a}`,'heal');spF(t,`+${a}`,'heal');flashEl(t,'heal');}
-function gb(S,t,n){t.block+=n;log(S,`${t.name} 방어막 +${n}`,'block');spF(t,`🛡+${n}`,'block');}
+function hh(S,t,n){n=Math.max(0,Math.floor((n+modAdd(t,'heal'))*modMul(t,'heal')));const a=Math.min(n,t.maxHp-t.hp);t.hp+=a;revealHp(t);log(S,`${t.name} HP +${a}`,'heal');spF(t,`+${a}`,'heal');flashEl(t,'heal');}
+function gb(S,t,n){n=Math.max(0,Math.floor((n+modAdd(t,'block'))*modMul(t,'block')));t.block+=n;log(S,`${t.name} 방어막 +${n}`,'block');spF(t,`🛡+${n}`,'block');}
 
 /* 스트레스 — 치명타 피격 · 스트레스 기술 · 생태계 · 노드 이동으로만 오른다.
    전투 중 낮추는 수단은 없다. */
@@ -3293,13 +3340,13 @@ function previewDmg(c,v,delta){
   if(!c)return v;
   if(!delta)v+=artSum('dmgBonus');
   if(c.collapsed)v=Math.floor(v*TUNE.colDmgOut);
-  const w=c.buffs&&c.buffs.find(b=>b.type==='wk');
-  if(w)v=Math.floor(v*(1-w.value));
+  v=Math.floor(v*modMul(c,'atk'));   // 약화 등 공격력 배율 — dd() 와 같은 통로를 쓴다
   return Math.max(0,v);
 }
-/* 방어막·회복은 아직 보정이 없다. 증감 버프가 생기면 여기 한 줄만 늘리면 카드에 바로 반영된다. */
-function previewBlk(c,v){ return v; }
-function previewHeal(c,v){ return v; }
+/* 방어막·회복도 같은 통로를 쓴다 — 이 값을 올리는 아티팩트나 버프가 생기면
+   카드에 표시되는 숫자까지 저절로 따라온다. */
+function previewBlk(c,v){ return Math.max(0,Math.floor((v+modAdd(c,'block'))*modMul(c,'block'))); }
+function previewHeal(c,v){ return Math.max(0,Math.floor((v+modAdd(c,'heal'))*modMul(c,'heal'))); }
 
 /* 설명문에 달린 꼬리표를 실제 값으로 갈아 끼운다 */
 function paintCardNums(box,caster){
@@ -4456,11 +4503,24 @@ function renderRelics(){
 
 /* ── 버프 아이콘 공통 ──
    설명은 효과 전문 대신 「이름 (N턴 남음)」만 보여준다. */
-const BUFF_INFO={
-  rip:{icon:'⚔',name:'반격'},
-  wk :{icon:'⬇',name:'약화'},
-  dr :{icon:'🩹',name:'피해 경감'},
+/* 버프·디버프 정의 — 이름 하나에 「어떤 스탯을 어떻게 바꾸는가」를 묶어 둔다.
+   statOf() 가 이 표를 보고 해석하므로, 새 상태이상은 여기 한 줄만 추가하면
+   턴 순서·툴팁·카드 표시까지 전부 자동으로 따라온다.
+
+     stat  바꾸는 스탯 이름        add/mul  버프의 value 를 보정값으로 바꾸는 식
+     flag  수치가 아닌 상태 (반격·공포처럼 있냐 없냐로만 쓰는 것)
+
+   예) 출혈을 넣고 싶다면:  bleed:{icon:'🩸',name:'출혈',stat:'hp_per_turn',add:v=>-v}
+       속도 저하 포션이라면: slow :{icon:'🐌',name:'둔화',stat:'spd',  add:v=>-v}  */
+const BUFF_SPEC={
+  rip :{icon:'⚔',name:'반격',      flag:true},
+  fear:{icon:'😱',name:'공포',      flag:true},
+  wk  :{icon:'⬇',name:'약화',      stat:'atk',       mul:v=>1-v},
+  dr  :{icon:'🩹',name:'피해 경감', stat:'dmg_taken', add:v=>-v},
+  eva :{icon:'💨',name:'회피',      stat:'eva',       add:v=>v},
+  def :{icon:'🛡',name:'방어',      stat:'def',       add:v=>v},
 };
+const BUFF_INFO=BUFF_SPEC;   // 아이콘·이름을 쓰던 기존 표시 코드가 그대로 동작한다
 /* 방어막이 깨지는 순간을 잠깐 붙잡아 부서지는 연출을 보여준다 */
 function breakShield(u){
   SFX.shieldBreak();
@@ -4564,7 +4624,7 @@ function allyTip(u){
     `<div class="tip-name">${u.name}</div>`+
     `<div class="tip-row"><span>체력</span><b>${Math.max(0,u.hp)} / ${u.maxHp}</b></div>`+
     `<div class="tip-row"><span>스트레스</span><b>${u.stress} / ${S_MAX}</b></div>`+
-    `<div class="tip-row"><span>속도</span><b>${u.spd}</b></div>`+
+    `<div class="tip-row"><span>속도</span><b>${spdOf(u)}</b></div>`+
     `<div class="tip-row"><span>방어막</span><b>${u.block}</b></div>`+
     `<div class="tip-row"><span>방어</span><b>${defOf(u)}</b></div>`+
     `<div class="tip-row"><span>회피</span><b>${Math.round(evaOf(u)*100)}%</b></div>`+
@@ -4601,7 +4661,7 @@ function enemyTip(u){
   t.innerHTML=
     `<div class="tip-name">${u.glyph} ${u.name}</div>`+
     `<div class="tip-row"><span>체력</span><b>${Math.max(0,u.hp)} / ${u.maxHp}</b></div>`+
-    `<div class="tip-row"><span>속도</span><b>${u.spd}</b></div>`+
+    `<div class="tip-row"><span>속도</span><b>${spdOf(u)}</b></div>`+
     `<div class="tip-row"><span>공격력</span><b>${atkTxt}</b></div>`+
     (u.satk?`<div class="tip-row"><span>스트레스 기술</span><b>+${u.satk}</b></div>`:'')+
     `<div class="tip-row"><span>방어막</span><b>${u.block}</b></div>`+
