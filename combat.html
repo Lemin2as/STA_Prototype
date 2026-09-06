@@ -2992,7 +2992,7 @@ function newGame(){
   G.energy=eCap();            // 1턴 몫
   G.q=buildQ();updateIntents();
   next();
-  setTimeout(spawnIntruder,900);   // 첫 라운드 몫 — 배치가 끝난 뒤 띄운다
+  fxT(spawnIntruder,900);   // 첫 라운드 몫 — 배치가 끝난 뒤 띄운다
   setTimeout(()=>{ if(gameplayVisible())runTutorial('battle',TUT_BATTLE); },700);
 }
 /* ── 저편의 끝 (beyond) ──
@@ -3141,6 +3141,17 @@ function endTurn(){
   G.pick=null;G.phase='enemy';G.qi++;
   render();check();if(G.phase!=='over')next();
 }
+/* ── 전투 연출 타이머 ──
+   타격 연출과 적의 행동은 몇백 ms 뒤에 실행되도록 예약된다. 그 사이에 메인 화면으로
+   나가면 예약분이 빈 화면 위에서 터져 피격음과 피해 숫자가 뜬다 (숫자는 #stage 에
+   붙으므로 메인 화면 위에 그려진다). 나갈 때 fxAbort() 로 세대를 넘겨 이전 세대에
+   예약된 것을 조용히 버린다.
+   뒷정리용 타이머(클래스 제거·노드 삭제)는 그대로 setTimeout 을 쓴다 — 그쪽을 취소하면
+   화면이 흔들리거나 어두워진 채로 굳는다. */
+let FXGEN=0;
+function fxAbort(){ FXGEN++; }
+function fxT(fn,ms){ const g=FXGEN; return setTimeout(()=>{ if(g===FXGEN)fn(); },ms); }
+
 /* 적이 타격 없이 행동했을 때(방어막·기술 등)도 카메라를 붙인다 */
 function camIfNoHit(actor,before){
   if(!TUNE.fx||fxHits!==before)return;
@@ -3150,7 +3161,7 @@ function camIfNoHit(actor,before){
 }
 function enTurn(e){
   log(G,`${e.name}의 행동...`,'turn');G.phase='enemy';render();turnFx(e);
-  setTimeout(()=>{
+  fxT(()=>{
     if(G.phase==='over')return;
     const before=fxHits;
     execEnemy(e);
@@ -3158,7 +3169,7 @@ function enTurn(e){
     endUnitTurn(e);                      // 적도 자기 차례가 끝날 때 줄어든다
     render();
     // 피격 연출이 끝나고 나서 다음 유닛의 턴이 시작되게 한 박자 둔다
-    setTimeout(()=>{
+    fxT(()=>{
       if(G.phase==='over')return;
       G.qi++;check();if(G.phase!=='over')next();
     },TUNE.aiDelay?Math.max(TUNE.postDelay,fxTail()):0);
@@ -3534,7 +3545,7 @@ function playCard(card,target){
     G.playing=true;
     flyCard(el,0,true);
     render();                                // 손패·에너지를 먼저 갱신한다
-    setTimeout(strike,CARD_POP_MS+CARD_FLY_MS*0.55);
+    fxT(strike,CARD_POP_MS+CARD_FLY_MS*0.55);
   }else{
     render();strike();
   }
@@ -3542,8 +3553,8 @@ function playCard(card,target){
 
 /* ── 종료 판정 ── */
 function check(){
-  if(G.en.every(e=>e.hp<=0)){G.phase='over';log(G,'전투 승리!','info');render();setTimeout(afterBattle,Math.max(700,fxTail()));return;}
-  if(G.ch.every(c=>c.hp<=0)){G.phase='over';log(G,'전원 이탈...','warning');render();setTimeout(showDefeat,Math.max(600,fxTail()));}
+  if(G.en.every(e=>e.hp<=0)){G.phase='over';log(G,'전투 승리!','info');render();fxT(afterBattle,Math.max(700,fxTail()));return;}
+  if(G.ch.every(c=>c.hp<=0)){G.phase='over';log(G,'전원 이탈...','warning');render();fxT(showDefeat,Math.max(600,fxTail()));}
 }
 
 /* ============================================================
@@ -3725,6 +3736,10 @@ function showDefeat(){
 }
 function showMain(){
   BGM.play('title');
+  // 예약된 전투 연출을 끊고, 이미 날아가는 중인 피해 숫자도 걷어낸다
+  fxAbort();
+  if(typeof G!=='undefined'&&G)G.phase='over';
+  document.querySelectorAll('#stage > .dmg-float').forEach(d=>d.remove());
   document.getElementById('guide').classList.remove('show');
   document.getElementById('inv').classList.remove('show');
   clearTimeout(ecoRollTimer);
@@ -4105,7 +4120,7 @@ function hitFx(atk,target,text,type,crit,delay,shown){
   if(atk&&first)fxAtk=atk;
 
   // ① 카메라가 둘을 한 화면에 담고, 나머지는 어둠에 잠긴다
-  if(atk&&first)setTimeout(()=>{
+  if(atk&&first)fxT(()=>{
     camStrike(atk,target);
     strikeFocus(atk,target,true);
     setPose(atk,'attack',TUNE.windupTime+TUNE.strikeHold);
@@ -4113,7 +4128,7 @@ function hitFx(atk,target,text,type,crit,delay,shown){
   },delay);
 
   // ② 타격
-  setTimeout(()=>{
+  fxT(()=>{
     if(shown!==undefined)target.hpReveal=shown;
     hitStop();
     SFX.hit(crit,atkSfxKind(atk));
