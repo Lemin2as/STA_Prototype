@@ -2974,6 +2974,7 @@ function freshEn(){
 let G;
 function newGame(){
   BGM.play('battle');
+  showScreen(null);            // 어느 화면에서 부르든 전투 화면으로 들어간다
   {const el=document.getElementById('act-name');if(el)el.className='';}
   G={turn:1,grade:TUNE.grade,ch:freshCh(),en:freshEn(),energy:0,q:[],qi:0,pick:null,phase:'init',logs:[],atm:0,
      arts:RUN.arts.map(id=>ARTS[id]).filter(Boolean)};
@@ -3618,6 +3619,32 @@ function afterBattle(){
   down.forEach(c=>RUN.evac.push(c.id));
   showEvac(down,showReward);
 }
+/* ══ 화면 전환 ══════════════════════════════════════════
+   화면을 덮는 창은 한 번에 하나만 열린다. 전투에는 전용 오버레이가 없어서,
+   화면이 하나도 열려 있지 않은 상태가 곧 전투다.
+   새 화면을 만들 때 손댈 곳은 아래 목록뿐이다 — 예전에는 전환 함수마다
+   "무엇을 닫을지"를 손으로 적어 두어서(showMain 은 13줄, showMap 은 두 벌),
+   목록에서 빠진 화면이 뒤에 조용히 남았다. */
+const SCREENS=['main-screen','map-screen','airship','shop','achieve','eco-roll',
+               'descend','sector-clear','evac','reward','defeat'];
+/* 화면 위에 겹쳐 뜨는 창 — 뒤에 있는 화면을 닫지 않는다.
+   전투 중에 가이드를 열어도 전투 자체는 계속 돌아간다. */
+const MODALS=['guide','inv','node-panel','df-confirm','quit-confirm'];
+const scrEl=id=>document.getElementById(id);
+const scrOn=id=>{const e=scrEl(id);return !!e&&e.classList.contains('show');};
+
+/* 지금 열린 화면. 상태를 따로 들고 있지 않고 화면에서 읽는다 —
+   변수로 두면 창을 닫는 50여 군데 중 하나만 갱신을 잊어도 어긋난다. */
+function curScreen(){ return SCREENS.find(scrOn)||'battle'; }
+/* "전투 중인가" — 가이드나 덱 창이 위에 떠 있어도 전투는 전투다. */
+function inBattle(){ return curScreen()==='battle'; }
+/* id 화면을 열고 나머지 화면과 겹친 창을 모두 닫는다. id 를 비우면 전투로 돌아간다. */
+function showScreen(id){
+  MODALS.forEach(m=>{const e=scrEl(m);if(e)e.classList.remove('show');});
+  SCREENS.forEach(v=>{ if(v!==id){const e=scrEl(v);if(e)e.classList.remove('show');} });
+  if(id){const e=scrEl(id);if(e)e.classList.add('show');}
+}
+
 function showEvac(units,then){
   const list=document.getElementById('ev-list');list.innerHTML='';
   units.forEach(u=>{
@@ -3626,7 +3653,7 @@ function showEvac(units,then){
     list.appendChild(el);
   });
   const ov=document.getElementById('evac');
-  ov.classList.add('show');
+  showScreen('evac');
   const ok=document.getElementById('ev-ok');
   ok.onclick=()=>{ov.classList.remove('show');then&&then();};
 }
@@ -3655,7 +3682,7 @@ function showReward(){
   if(r.art)add(ARTS[r.art].icon,ARTS[r.art].name,'획득');
 
   renderRewardCards();
-  document.getElementById('reward').classList.add('show');
+  showScreen('reward');
 }
 
 function renderRewardCards(){
@@ -3689,8 +3716,7 @@ function act2(msg){
 }
 
 function nextBattle(){
-  document.getElementById('reward').classList.remove('show');
-  document.getElementById('rw-note').classList.remove('show');
+  document.getElementById('rw-note').classList.remove('show');   // 화면이 아니라 토스트라 따로 지운다
   if(!RUN.map)initMap();                 // 지도 없이 시작한 전투도 지도로 합류시킨다
   if(RUN.map.cur&&RUN.map.cur.d===sectorDepth()-1){showMap();sectorClear();return;}
   showMap();
@@ -3731,8 +3757,7 @@ function showDefeat(){
     `${sectorName()} · ${RUN.battle}번째 전투 · ${G.turn}턴에서 파티 전멸<br>`+
     `<span style="color:#7f96ad">카드 · 포션 · 금화는 소멸합니다.</span><br><br>`+
     settleText(got);
-  document.getElementById('df-confirm').classList.remove('show');
-  document.getElementById('defeat').classList.add('show');
+  showScreen('defeat');
 }
 function showMain(){
   BGM.play('title');
@@ -3740,26 +3765,13 @@ function showMain(){
   fxAbort();
   if(typeof G!=='undefined'&&G)G.phase='over';
   document.querySelectorAll('#stage > .dmg-float').forEach(d=>d.remove());
-  document.getElementById('guide').classList.remove('show');
-  document.getElementById('inv').classList.remove('show');
-  clearTimeout(ecoRollTimer);
-  document.getElementById('eco-roll').classList.remove('show');
-  document.getElementById('achieve').classList.remove('show');
-  document.getElementById('airship').classList.remove('show');
-  document.getElementById('sector-clear').classList.remove('show');
-  document.getElementById('descend').classList.remove('show');
-  document.getElementById('evac').classList.remove('show');
-  document.getElementById('map-screen').classList.remove('show');
-  document.getElementById('node-panel').classList.remove('show');
-  document.getElementById('defeat').classList.remove('show');
-  document.getElementById('df-confirm').classList.remove('show');
-  document.getElementById('reward').classList.remove('show');
+  clearTimeout(ecoRollTimer);        // 돌아가는 중이던 생태계 룰렛을 세운다
   document.getElementById('ms-asc').textContent=META.ascension;
   document.getElementById('ms-best').textContent=
     META.bestSector?((SECTORS[META.bestSector]||{name:META.bestSector+'차'}).name
       +(META.clears?' · '+META.clears+'회 클리어':'')):'—';
-  document.getElementById('main-screen').classList.add('show');
-  setTimeout(()=>{ if(document.getElementById('main-screen').classList.contains('show'))runTutorial('main',TUT_MAIN); },500);
+  showScreen('main-screen');
+  setTimeout(()=>{ if(screenVisible('main-screen'))runTutorial('main',TUT_MAIN); },500);
 }
 /* 공역 지도와 파티 상태를 새로 만든다 */
 function initMap(){
@@ -3770,9 +3782,6 @@ function initMap(){
 }
 
 function startRun(){
-  document.getElementById('main-screen').classList.remove('show');
-  document.getElementById('defeat').classList.remove('show');
-  document.getElementById('df-confirm').classList.remove('show');
   runReset();
   rollEco();
   markSectorStart();
@@ -5438,7 +5447,7 @@ function playDescent(from,to,done){
   const box=document.getElementById('descend');
   if(!box||!TUNE.fx){ done&&done(); return; }
   box.classList.remove('arrived');
-  box.classList.add('show');                 // 먼저 띄워야 높이를 잴 수 있다
+  showScreen('descend');                     // 먼저 띄워야 높이를 잴 수 있다
   box.style.setProperty('--dsT',DESCENT_MS+'ms');
   const H=box.clientHeight||480;
   box.style.setProperty('--rise',Math.round(H*2.4)+'px');
@@ -5523,15 +5532,10 @@ function playDescent(from,to,done){
 /* ── 지도 화면 ── */
 function showMap(){
   BGM.play('map');
-  document.getElementById('descend').classList.remove('show');
-  document.getElementById('sector-clear').classList.remove('show');
-  document.getElementById('guide').classList.remove('show');
   applySectorArt();
-  ['reward','defeat','main-screen','node-panel','evac','shop','airship','achieve','eco-roll','inv','guide'].forEach(id=>document.getElementById(id).classList.remove('show'));
-  document.getElementById('map-screen').classList.add('show');
+  showScreen('map-screen');
   renderMap();
 }
-function hideMap(){document.getElementById('map-screen').classList.remove('show');}
 
 function nodeOpen(nd){
   const M=RUN.map;
@@ -5679,7 +5683,7 @@ function enterNode(d,i){
   }
   renderMap();
   const T=NODE_TYPE[nd.type];
-  if(T.grade){TUNE.grade=T.grade;hideMap();RUN.battle++;newGame();return;}
+  if(T.grade){TUNE.grade=T.grade;RUN.battle++;newGame();return;}
   setTimeout(()=>resolveNode(nd.type),260);
 }
 
@@ -5795,7 +5799,7 @@ function openAirship(mode){
   AS_MODE=mode||'yard';
   AS_TAB=null;                       // 늘 갑판에서 시작한다
   AS_RETURN=null;
-  document.getElementById('airship').classList.add('show');
+  showScreen('airship');
   renderAirship();
 }
 /* 출항 준비 중 「비공정 강화」로 잠깐 건너간다 — 런은 이미 시작 전이라
@@ -5809,13 +5813,11 @@ function closeAirship(){
   if(AS_MODE==='yard'&&AS_RETURN==='depart'){        // 강화 → 출항 준비로 복귀
     AS_RETURN=null; AS_MODE='depart'; AS_TAB=null; renderAirship(); return;
   }
-  document.getElementById('airship').classList.remove('show');
   if(AS_MODE==='depart')showEcoRoulette(showMap);   // 출발 직전에 생태계를 뽑는다
-  else showMain();
+  else showMain();                                  // 어느 쪽이든 다음 화면이 갑판을 닫는다
 }
 /* 출항 준비를 취소하고 메인으로 — 아직 공역에 들어서기 전이라 그냥 나가면 된다 */
 function backFromDepart(){
-  document.getElementById('airship').classList.remove('show');
   showMain();
 }
 /* 자원 한 줄 — 모드에 따라 보는 지갑이 다르다 */
@@ -5962,30 +5964,16 @@ function tutRect(el){
 }
 let tutQueue=null, tutIdx=0, tutDoneKey=null;
 /* 부팅 시 더미 전투가 항상 깔려 있어, 실제로 그 화면이 보일 때만 튜토리얼을 띄운다 */
-function gameplayVisible(){
-  const blockers=['main-screen','map-screen','node-panel','shop','airship','achieve','inv','guide',
-    'eco-roll','descend','sector-clear','evac','reward','defeat','df-confirm','quit-confirm'];
-  return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
-}
-/* 출항 준비 화면(depart 모드로 열린 갑판)이 다른 창에 가리지 않고 실제로 보일 때만 */
-function yardVisible(){
-  if(AS_MODE!=='yard')return false;
-  if(!document.getElementById('airship').classList.contains('show'))return false;
-  const blockers=['guide','inv','achieve','eco-roll'];
-  return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
-}
-function departVisible(){
-  if(AS_MODE!=='depart')return false;
-  if(!document.getElementById('airship').classList.contains('show'))return false;
-  const blockers=['guide','inv','achieve','eco-roll'];
-  return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
-}
-function mapVisible(){
-  if(!document.getElementById('map-screen').classList.contains('show'))return false;
-  const blockers=['node-panel','shop','airship','achieve','inv','guide','eco-roll',
-    'sector-clear','evac','reward','defeat','df-confirm','descend','quit-confirm'];
-  return !blockers.some(id=>{const el=document.getElementById(id);return el&&el.classList.contains('show');});
-}
+/* 그 화면이 지금 열려 있고, 위에 겹친 창도 없는가 — 튜토리얼을 띄워도 되는 조건이다.
+   화면이 한 번에 하나만 열리므로 "무엇에 가려질 수 있는지"를 따로 적을 필요가 없다. */
+function screenVisible(id){ return curScreen()===id && !MODALS.some(scrOn); }
+/* 전투 화면이 실제로 플레이어 눈에 보이는가.
+   inBattle() 과는 다른 질문이다: 가이드를 열어도 전투 중인 것은 그대로다. */
+function gameplayVisible(){ return screenVisible('battle'); }
+/* 갑판은 한 화면을 정비(yard)와 출항 준비(depart) 두 모드로 나눠 쓴다 */
+function yardVisible(){   return AS_MODE==='yard'  &&screenVisible('airship'); }
+function departVisible(){ return AS_MODE==='depart'&&screenVisible('airship'); }
+function mapVisible(){    return screenVisible('map-screen'); }
 function runTutorial(key,steps){
   if(META.tut&&META.tut[key])return;                 // 이미 봤다
   const live=steps.filter(st=>st.rectFn||document.querySelector(st.sel));
@@ -6230,7 +6218,7 @@ function openInv(back){
 }
 function closeInv(){
   document.getElementById('inv').classList.remove('show');
-  if(IV_BACK==='clear')document.getElementById('sector-clear').classList.add('show');
+  if(IV_BACK==='clear')showScreen('sector-clear');   // 덱을 보고 통과 화면으로 되돌아온다
 }
 function renderInv(){
   document.getElementById('iv-res').innerHTML=
@@ -6281,7 +6269,7 @@ function showEcoRoulette(done){
   document.getElementById('er-sector').textContent=sectorName();
   document.getElementById('er-desc').textContent='';
   document.getElementById('er-go').style.visibility='hidden';
-  box.classList.add('show');
+  showScreen('eco-roll');
 
   // 아직 아무것도 모르는 지도 — 노드만 검게 흩어 둔다
   drawBlackMap();
@@ -6500,8 +6488,7 @@ function facGiveText(id,lv){
 
 /* ── 업적 ── */
 function openAchieve(){
-  document.getElementById('main-screen').classList.remove('show');
-  document.getElementById('achieve').classList.add('show');
+  showScreen('achieve');
   const done=META.ach.length, all=Object.keys(ACH).length;
   document.getElementById('ac-sum').innerHTML=
     '달성 <b>'+done+'</b> / '+all+'   ·   누적 처치 <b>'+META.kills+'</b>';
@@ -6570,7 +6557,7 @@ function rollShop(){
 function openShop(){
   if(!SHOP)rollShop();
   shopView('main');
-  document.getElementById('shop').classList.add('show');
+  showScreen('shop');
   renderShop();
 }
 function shopView(v){
@@ -6668,7 +6655,6 @@ function renderRemove(price){
 }
 
 function closeShop(){
-  document.getElementById('shop').classList.remove('show');
   SHOP=null;                       // 노드를 떠나면 매물은 사라진다
   showMap();
 }
@@ -6775,12 +6761,11 @@ function sectorClear(){
     '<div class="n-todo" style="color:#8fa6bd">도착해서 하나가 정해집니다</div>';
 
   document.getElementById('sc-go').textContent=d.ground?'지상으로':'내려간다';
-  document.getElementById('sector-clear').classList.add('show');
+  showScreen('sector-clear');
 }
 
 /* 다음 공역으로 내려간다 — 파티 상태는 그대로 들고 간다 */
 function descend(){
-  document.getElementById('sector-clear').classList.remove('show');
   const from=RUN.sector;
   RUN.sector++;
   // 통과 화면에서 예고한 생태계를 그대로 적용한다
@@ -6809,7 +6794,7 @@ function runCleared(loot){
   npShow('지 상 돌 파',
     '다섯 공역을 지나 지상까지 밟았습니다.<br>'+loot+'<br><br>'+settleText(got)+
     '<br><br><span style="color:#8fa6bd">승천 단계는 아직 만들어지지 않았습니다.</span>',
-    [{label:'메인 화면',primary:true,act:()=>{hideMap();showMain();}}]);
+    [{label:'메인 화면',primary:true,act:showMain}]);
 }
 
 /* ============================================================
@@ -6857,16 +6842,11 @@ document.getElementById('ms-wipe').addEventListener('click',e=>{
 });
 document.getElementById('ms-ach').addEventListener('click',openAchieve);
 document.getElementById('ms-guide').addEventListener('click',()=>{
-  document.getElementById('main-screen').classList.remove('show');
+  showScreen(null);
   GD_TAB='flow'; GD_BACK='main'; openGuide();
 });
-document.getElementById('ac-close').addEventListener('click',()=>{
-  document.getElementById('achieve').classList.remove('show'); showMain();
-});
-document.getElementById('ms-yard').addEventListener('click',()=>{
-  document.getElementById('main-screen').classList.remove('show');
-  openAirship('yard');
-});
+document.getElementById('ac-close').addEventListener('click',showMain);
+document.getElementById('ms-yard').addEventListener('click',()=>openAirship('yard'));
 
 /* 임시 — 결과 화면 확인용 스킵 */
 document.getElementById('dbg-restart').addEventListener('click',newGame);
@@ -6911,12 +6891,9 @@ document.getElementById('dbg-kill').addEventListener('click',()=>{
 /* 임시 — 지금 공역을 건너뛰고 다음 공역으로 내려간다 */
 function skipSector(){
   if(!RUN.map)initMap();
-  // 전투·보상 화면을 닫고 지도 흐름으로 되돌린다
-  ['reward','defeat','node-panel','evac'].forEach(id=>document.getElementById(id).classList.remove('show'));
   if(G)G.phase='over';
   // 전투 중이었다면 그 시점의 파티 상태를 지도 쪽으로 넘긴다
   if(G&&G.ch&&G.ch.length)savePartyState();
-  hideMap();
   /* 실제 흐름과 같게 정산 화면을 거친다.
      여기서 바로 descend() 를 부르면 성과 · 파티 상태 · 복귀 · 다음 공역 예고를 건너뛴다. */
   sectorClear();
@@ -6945,7 +6922,7 @@ document.getElementById('sh-inv').addEventListener('click',()=>openInv('shop'));
 document.getElementById('mp-guide').addEventListener('click',()=>{GD_TAB='world';GD_BACK='map';openGuide();});
 document.getElementById('tb-guide').addEventListener('click',()=>{GD_TAB='battle';GD_BACK='battle';openGuide();});
 document.getElementById('sc-deck').addEventListener('click',()=>{
-  document.getElementById('sector-clear').classList.remove('show');
+  showScreen(null);
   openInv('clear');
 });
 document.getElementById('sc-go').addEventListener('click',descend);
@@ -7009,9 +6986,7 @@ document.getElementById('tp-apply').addEventListener('click',()=>{
   }
   TUNE.biome=document.getElementById('tp-biome').value;
   TUNE.grade=document.getElementById('tp-grade').value;
-  document.getElementById('tune-panel').classList.remove('show');
-  document.getElementById('reward').classList.remove('show');
-  document.getElementById('defeat').classList.remove('show');
+  document.getElementById('tune-panel').classList.remove('show');   // 화면이 아니라 조정 패널
   newGame();
 });
 
