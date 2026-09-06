@@ -2653,10 +2653,6 @@ const CD={
              dmg:9,bonus:5,
              text:'<i>분노 베기</i><br>단일 적 {dmg} 피해<br>방어막 보유 시 +{bonus}',
              fx(S,c,t){dd(S,t,c.block>0?this.dmg+this.bonus:this.dmg,c);}}),
-  h_zorn2:  mkCard({id:'h_zorn2',name:'초른하우',cost:1,type:'attack',target:'enemy_single',
-             dmg:9,bonus:5,
-             text:'<i>분노 베기</i><br>단일 적 {dmg} 피해<br>방어막 보유 시 +{bonus}',
-             fx(S,c,t){dd(S,t,c.block>0?this.dmg+this.bonus:this.dmg,c);}}),
   h_zwerch: mkCard({id:'h_zwerch',name:'츠베르히하우',cost:1,type:'attack',target:'enemy_single',
              dmg:7,blk:4,
              text:'<i>가로 베기</i><br>단일 적 {dmg} 피해<br>방어막 +{blk}',
@@ -2681,10 +2677,6 @@ const CD={
              blk:7,turns:1,
              text:'<i>빗겨내기</i><br>방어막 +{blk}<br>반격 <b>{turns}턴</b>',
              fx(S,c){gb(S,c,this.blk);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
-  h_abset2: mkCard({id:'h_abset2',name:'압제첸',cost:1,type:'defend',target:'self',
-             blk:7,turns:1,
-             text:'<i>빗겨내기</i><br>방어막 +{blk}<br>반격 <b>{turns}턴</b>',
-             fx(S,c){gb(S,c,this.blk);ab(c,'rip',this.turns,0);act(c,'반격 태세');}}),
   h_nach:   mkCard({id:'h_nach',name:'나흐라이젠',cost:2,type:'attack',target:'enemy_single',
              dmg:6,hits:2,turns:1,
              text:'<i>추격</i><br>단일 적 {dmg} 피해 ×{hits}<br>반격 <b>{turns}턴</b>',
@@ -2696,13 +2688,7 @@ const CD={
   t_bul:    mkCard({id:'t_bul',name:'성벽',cost:1,type:'defend',target:'self',blk:14,
              text:'<i>버텨 선다</i><br>방어막 +{blk}',
              fx(S,c){gb(S,c,this.blk);}}),
-  t_bul2:   mkCard({id:'t_bul2',name:'성벽',cost:1,type:'defend',target:'self',blk:14,
-             text:'<i>버텨 선다</i><br>방어막 +{blk}',
-             fx(S,c){gb(S,c,this.blk);}}),
   t_ward:   mkCard({id:'t_ward',name:'가호',cost:1,type:'defend',target:'self',blk:6,
-             text:'<i>작은 기도</i><br>방어막 +{blk}',
-             fx(S,c){gb(S,c,this.blk);}}),
-  t_ward2:  mkCard({id:'t_ward2',name:'가호',cost:1,type:'defend',target:'self',blk:6,
              text:'<i>작은 기도</i><br>방어막 +{blk}',
              fx(S,c){gb(S,c,this.blk);}}),
   t_smite:  mkCard({id:'t_smite',name:'응징',cost:1,type:'attack',target:'enemy_single',
@@ -2735,9 +2721,6 @@ const CD={
      모으기: 프리즘 순환 +1 · 빛 흡수 +2 · 섬광 +1 (턴마다 자연 회복 +1)
      태우기: 무지개 광선 -1 · 일곱 빛깔 급류 -1 · 종막의 스펙트럼 -2 */
   o_bolt:    mkCard({id:'o_bolt',name:'빛살',cost:1,type:'attack',target:'enemy_single',dmg:10,
-              text:'<i>가느다란 빛</i><br>단일 적 {dmg} 피해',
-              fx(S,c,t){dd(S,t,this.dmg,c);}}),
-  o_bolt2:   mkCard({id:'o_bolt2',name:'빛살',cost:1,type:'attack',target:'enemy_single',dmg:10,
               text:'<i>가느다란 빛</i><br>단일 적 {dmg} 피해',
               fx(S,c,t){dd(S,t,this.dmg,c);}}),
   o_spark:   mkCard({id:'o_spark',name:'섬광',cost:1,type:'attack',target:'enemy_single',
@@ -2866,7 +2849,7 @@ const ACH={
 };
 /* 시설 레벨로도 열린다 (기획서 — 홀수 레벨은 품목 개방) */
 const FAC_UNLOCK={
-  forge  :{1:{recipe:['h_abset','t_ward2','o_flow']}, 3:{recipe:['h_schiel','t_sanct','o_torrent']}},
+  forge  :{1:{recipe:['h_abset','t_ward','o_flow']}, 3:{recipe:['h_schiel','t_sanct','o_torrent']}},
   alchemy:{1:{pot:['heal']},                          3:{pot:['vigor','calm']}},
 };
 
@@ -2957,9 +2940,9 @@ const PARTY_DEF=[
 
 /* 런 시작 시의 기본 덱. 보상으로 얻은 카드는 RUN.decks에 누적된다. */
 const BASE_DECKS={
-  helene:['h_zorn','h_zorn2','h_zwerch','h_krump','h_schiel','h_scheitel','h_verset','h_abset','h_abset2','h_nach'],
-  tricia:['t_bul','t_bul2','t_ward','t_ward2','t_smite','t_hammer','t_oath','t_chall','t_bless','t_sanct'],
-  olga:['o_bolt','o_bolt2','o_spark','o_flow','o_absorb','o_veil','o_dim','o_ray','o_torrent','o_apoc'],
+  helene:['h_zorn','h_zorn','h_zwerch','h_krump','h_schiel','h_scheitel','h_verset','h_abset','h_abset','h_nach'],
+  tricia:['t_bul','t_bul','t_ward','t_ward','t_smite','t_hammer','t_oath','t_chall','t_bless','t_sanct'],
+  olga:['o_bolt','o_bolt','o_spark','o_flow','o_absorb','o_veil','o_dim','o_ray','o_torrent','o_apoc'],
 };
 function deckOf(id){
   if(!RUN.decks)RUN.decks={helene:[...BASE_DECKS.helene],tricia:[...BASE_DECKS.tricia],olga:[...BASE_DECKS.olga]};
