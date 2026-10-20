@@ -2307,6 +2307,7 @@ img.emoji { height:1em; width:1em; margin:0 .04em 0 .06em; vertical-align:-0.12e
     <div class="rw-cards" id="rw-cards"></div>
     <div class="rw-note" id="rw-note"></div>
     <div class="rw-btns">
+      <button class="ov-btn ghost" id="rw-inv">보유 현황</button>
       <button class="ov-btn ghost" id="rw-skip">카드 건너뛰기</button>
       <button class="ov-btn primary" id="rw-next">지도로</button>
     </div>
@@ -6919,6 +6920,8 @@ document.getElementById('tut-prev').addEventListener('click',tutPrev);
 document.getElementById('tut-skip').addEventListener('click',endTutorial);
 document.getElementById('mp-inv').addEventListener('click',()=>openInv('map'));
 document.getElementById('sh-inv').addEventListener('click',()=>openInv('shop'));
+/* 보상 화면 위에 겹쳐 연다 — 어떤 카드를 받을지 덱과 아티팩트를 보고 고르게 한다 */
+document.getElementById('rw-inv').addEventListener('click',()=>openInv('reward'));
 document.getElementById('mp-guide').addEventListener('click',()=>{GD_TAB='world';GD_BACK='map';openGuide();});
 document.getElementById('tb-guide').addEventListener('click',()=>{GD_TAB='battle';GD_BACK='battle';openGuide();});
 document.getElementById('sc-deck').addEventListener('click',()=>{
